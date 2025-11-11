@@ -9,8 +9,9 @@ dependencies = [
     "rapidfuzz>=3.14.3",
 ]
 
-[project.optional-dependencies]
+[dependency-groups]
 dev = [
+    "notebook>=7.4.7",
     "pytest>=8.3.4",
     "pytest-cov>=6.0.0",
     "mypy>=1.14.1",
