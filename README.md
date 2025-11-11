@@ -30,7 +30,7 @@ pip install cobjectric
 
 1. Install dependencies with uv:
 ```bash
-uv sync --all-extras
+uv sync --dev
 ```
 
 2. Install pre-commit hooks:
