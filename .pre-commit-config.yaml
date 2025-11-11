@@ -1,0 +1,50 @@
+default_stages: [pre-push]
+
+repos:
+  # Typos checker
+  - repo: https://github.com/crate-ci/typos
+    rev: v1.39.0
+    hooks:
+      - id: typos
+        types_or: [python, pyi, markdown, yaml, json]
+
+  - repo: https://github.com/pycqa/isort
+    rev: 6.0.1
+    hooks:
+      - id: isort
+        name: isort (import sorting)
+        stages: [pre-push]
+
+  - repo: https://github.com/psf/black
+    rev: 25.1.0
+    hooks:
+      - id: black
+        name: black (code formatting)
+        args: [--config=./pyproject.toml]
+        stages: [pre-push]
+
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.14.3
+    hooks:
+      - id: ruff-check
+        args: [--fix, --config=./ruff.toml]
+        stages: [pre-push]
+
+  - repo: local
+    hooks:
+      - id: mypy
+        name: mypy (type checker)
+        entry: uv run mypy
+        language: system
+        types: [python]
+        pass_filenames: false
+        args: [.]
+        stages: [pre-push]
+
+      - id: pytest
+        name: pytest (test suite)
+        entry: bash -c 'uv run inv test || [ $? -eq 5 ]'
+        language: system
+        pass_filenames: false
+        always_run: true
+        stages: [pre-push]

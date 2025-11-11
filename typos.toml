@@ -1,0 +1,20 @@
+[default]
+extend-ignore-re = []
+
+[files]
+extend-exclude = [
+    "*.json",
+    "*.lock",
+    "poetry.lock",
+    "*.pyc",
+    "__pycache__",
+    ".git",
+    ".mypy_cache",
+    ".pytest_cache",
+    ".ruff_cache",
+    "*.egg-info",
+    "dist",
+    "build",
+    "tests/",
+    "scripts/",
+]

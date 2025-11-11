@@ -51,6 +51,13 @@ coverage.xml
 .pytest_cache/
 cover/
 
+# Coverage files
+.coverage
+.coverage.*
+htmlcov/
+coverage.xml
+*.cover
+
 # Translations
 *.mo
 *.pot
@@ -186,7 +193,14 @@ cython_debug/
 #  that can be found at https://github.com/github/gitignore/blob/main/Global/VisualStudioCode.gitignore
 #  and can be added to the global gitignore or merged into this file. However, if you prefer, 
 #  you could uncomment the following to ignore the entire vscode folder
-# .vscode/
+.vscode/
+
+# Custom project ignores
+specs/
+
+# .github
+!.github/workflows/
+.github/**/*.md
 
 # Ruff stuff:
 .ruff_cache/

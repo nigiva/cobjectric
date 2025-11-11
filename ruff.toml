@@ -1,0 +1,137 @@
+# Exclude a variety of commonly ignored directories.
+exclude = [
+    ".bzr",
+    ".direnv",
+    ".eggs",
+    ".git",
+    ".git-rewrite",
+    ".hg",
+    ".ipynb_checkpoints",
+    ".mypy_cache",
+    ".nox",
+    ".pants.d",
+    ".pyenv",
+    ".pytest_cache",
+    ".pytype",
+    ".ruff_cache",
+    ".svn",
+    ".tox",
+    ".venv",
+    ".vscode",
+    "__pypackages__",
+    "__pycache__",
+    "_build",
+    "buck-out",
+    "build",
+    "dist",
+    "node_modules",
+    "site-packages",
+    "venv",
+    "vendored",
+    "*.ipynb",
+]
+
+# Same as Black.
+line-length = 88
+indent-width = 4
+
+# Assume Python 3.13
+target-version = "py313"
+
+
+########
+# Lint #
+########
+
+
+[lint]
+# Enable Pyflakes (`F`) and a subset of the pycodestyle (`E`)  codes by default.
+select = [
+    "ANN",    # Annotations: Validates type annotations and other type-related constructs.
+    "B",      # Bugbear: Checks for additional common errors and issues not covered by Pyflakes.
+    "E",      # Errors: Catches general Python errors like syntax issues and other coding errors.
+    "ERA",    # flake8-eradicate: Checks for commented-out code and other forms of dead code.
+    "F",      # Failures: Identifies runtime errors that would cause the program to fail.
+    "I",      # Isort: Checks import order and grouping.
+    "N",      # Naming: Enforces naming conventions for variables, functions, classes, and other objects.
+    "PLC",    # PyLint convention: Identifies violations of common Python conventions (e.g., naming).
+    "PLE",    # PyLint error: Reports errors identified by PyLint's error-checking rules.
+    "PLW",    # PyLint warning: Flags warnings detected by PyLint, often related to best practices.
+    "Q",      # Quotes: Checks for consistent use of single or double quotes in strings.
+    "RUF027", # missing-f-string-syntax: For example "hello {name}" should be f"hello {name}"
+    "RUF100", # unused noqa directive
+    "S",      # Security: Flags insecure coding practices, identifies common security issues in Python code.
+    "T20",    # flake8-print: Checks for print statements in Python code.
+    "TID252", # flake8-tidy-imports: Prefer absolute imports over relative imports from parent modules
+    "W",      # Warnings: Flags suspicious constructs or practices that might not be outright errors.
+]
+ignore = [
+    "ANN204", # Missing return type annotation for __init__, __new__, or __call__
+    "ANN003", # Kwarg type annotation missing
+    "S101",   # Use of assert detected
+    "I001",   # Not aligned with isort
+]
+preview = true
+
+# Allow fix for all enabled rules (when `--fix`) is provided.
+fixable = ["ALL"]
+unfixable = []
+
+# Allow unused variables when underscore-prefixed.
+dummy-variable-rgx = "^(_+|(_+[a-zA-Z0-9_]*[a-zA-Z0-9]+?))$"
+
+
+##############################
+# Lint / Flake8 Tidy Imports #
+##############################
+
+
+[lint.flake8-tidy-imports]
+ban-relative-imports = "parents" # or "all"
+
+
+##########################
+# Lint / Ignore per file #
+##########################
+
+
+[lint.extend-per-file-ignores]
+"__init__.py" = [
+    "E402", # Module level import not at top of file
+    "F401", # Module imported but unused
+]
+"tests/**/*.py" = [
+    "ANN",  # Missing type annotations
+    "B",    # Bugbear checks (e.g., mutable default arguments)
+    "N",    # Naming conventions
+    "PLC",  # PyLint conventions
+    "PLW",  # PyLint warnings
+    "S",    # Security checks (assert, eval, exec, etc.)
+    "T20",  # Print statements
+    "ERA",  # Commented-out code
+    "E501", # Line too long
+]
+"tasks/**/*.py" = [
+    "ANN", # Missing type annotation for self in method
+    "S",   # Enable some functions that are not allowed in security mode like assert, eval, exec, etc.
+    "T20", # Enable print statements
+]
+
+
+##########
+# Format #
+##########
+
+
+[format]
+# Like Black, use double quotes for strings.
+quote-style = "double"
+
+# Like Black, indent with spaces, rather than tabs.
+indent-style = "space"
+
+# Like Black, respect magic trailing commas.
+skip-magic-trailing-comma = false
+
+# Like Black, automatically detect the appropriate line ending.
+line-ending = "auto"
