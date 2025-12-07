@@ -5,7 +5,7 @@
 **Complex Object Metric** - A Python library for computing metrics on complex objects (JSON, dictionaries, lists, etc.).
 
 [![CI](https://github.com/nigiva/cobjectric/actions/workflows/ci.yml/badge.svg)](https://github.com/nigiva/cobjectric/actions/workflows/ci.yml)
-[![cov](https://nigiva.github.io/cobjectric/badges/coverage.svg)](https://github.com/nigiva/cobjectric/actions)
+[![codecov](https://codecov.io/gh/nigiva/cobjectric/graph/badge.svg)](https://codecov.io/gh/nigiva/cobjectric)
 [![PyPI version](https://img.shields.io/pypi/v/cobjectric.svg)](https://pypi.org/project/cobjectric/)
 [![PyPI downloads](https://img.shields.io/pypi/dm/cobjectric.svg)](https://pypi.org/project/cobjectric/)
 [![Python Version](https://img.shields.io/pypi/pyversions/cobjectric.svg)](https://pypi.org/project/cobjectric/)
