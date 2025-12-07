@@ -83,6 +83,16 @@ jobs:
           sed -i "s/^version = \".*\"/version = \"${{ steps.version.outputs.version }}\"/" pyproject.toml
           cat pyproject.toml | grep "^version"
 
+      - name: Update version in README.md
+        if: steps.check-tag.outputs.skipped == 'false'
+        run: |
+          if grep -q "version = {" README.md; then
+            sed -i "s/version = {[^}]*}/version = {${{ steps.version.outputs.version }}}/" README.md
+            echo "Updated README.md version to ${{ steps.version.outputs.version }}"
+          else
+            echo "No version found in README.md, skipping"
+          fi
+
       - name: Update uv.lock
         if: steps.check-tag.outputs.skipped == 'false'
         run: uv lock
@@ -90,7 +100,7 @@ jobs:
       - name: Commit version bump
         if: steps.check-tag.outputs.skipped == 'false'
         run: |
-          git add pyproject.toml uv.lock
+          git add pyproject.toml uv.lock README.md
           git commit -m "chore: bump version to ${{ steps.version.outputs.version }}"
           git push origin main
 

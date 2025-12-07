@@ -78,7 +78,7 @@ jobs:
             --cov-fail-under=80 \
             --cov-report=xml:cov.xml \
             --cov-report=term:skip-covered \
-            --cov-report=json:cov.json \
+            --cov-report=json \
             --verbose
 
       - name: Upload coverage reports
@@ -88,8 +88,13 @@ jobs:
           name: coverage-reports
           path: |
             cov.xml
-            cov.json
+            coverage.json
           retention-days: 30
+
+      - name: Upload coverage reports to Codecov
+        uses: codecov/codecov-action@v5
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
 
       - name: Comment PR with coverage
         if: github.event_name == 'pull_request'

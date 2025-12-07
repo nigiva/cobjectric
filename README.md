@@ -1,12 +1,17 @@
 # Cobjectric
 
-> [!WARNING]
-> **Status**: 🚧 Work in Progress - This project is in early development
+> [!WARNING] > **Status**: 🚧 Work in Progress - This project is in early development
 
 **Complex Object Metric** - A Python library for computing metrics on complex objects (JSON, dictionaries, lists, etc.).
 
-[![Python Version](https://img.shields.io/badge/python-3.13.9-blue.svg)](https://www.python.org/downloads/)
+[![CI](https://github.com/nigiva/cobjectric/actions/workflows/ci.yml/badge.svg)](https://github.com/nigiva/cobjectric/actions/workflows/ci.yml)
+[![codecov](https://codecov.io/github/nigiva/cobjectric/graph/badge.svg?token=8W3KJU8JG1)](https://codecov.io/github/nigiva/cobjectric)
+[![PyPI version](https://img.shields.io/pypi/v/cobjectric.svg)](https://pypi.org/project/cobjectric/)
+[![PyPI downloads](https://img.shields.io/pypi/dm/cobjectric.svg)](https://pypi.org/project/cobjectric/)
+[![Python Version](https://img.shields.io/pypi/pyversions/cobjectric.svg)](https://pypi.org/project/cobjectric/)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
+[![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
+[![Ruff](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/ruff/main/assets/badge/v2.json)](https://github.com/astral-sh/ruff)
 
 ## 📖 Description
 
@@ -17,23 +22,24 @@ Cobjectric is a library designed to help developers calculate metrics on complex
 ### For Users
 
 ```bash
-# TODO: Once published to PyPI
 pip install cobjectric
 ```
 
 ### For Development
 
-
 **Prerequisites**
+
 - Python 3.13.9 or higher
 - [uv](https://github.com/astral-sh/uv) - Fast Python package installer
 
 1. Install dependencies with uv:
+
 ```bash
 uv sync --dev
 ```
 
 2. Install pre-commit hooks:
+
 ```bash
 uv run pre-commit install --hook-type pre-push
 ```
@@ -45,6 +51,7 @@ uv run pre-commit install --hook-type pre-push
 The project uses [invoke](https://www.pyinvoke.org/) for task management.
 
 To see all available commands:
+
 ```bash
 uv run inv --list
 # or shorter:
@@ -52,6 +59,7 @@ uv run inv -l
 ```
 
 To get help on a specific command:
+
 ```bash
 uv run inv --help <command>
 # Example:
@@ -85,6 +93,6 @@ If you use Cobjectric in your research or projects, please consider citing it:
   publisher = {GitHub},
   journal = {GitHub repository},
   howpublished = {\url{https://github.com/nigiva/cobjectric}},
-  version = {0.1.0}
+  version = {1.0.0}
 }
 ```
