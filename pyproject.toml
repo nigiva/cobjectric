@@ -1,6 +1,6 @@
 [project]
 name = "cobjectric"
-version = "1.0.0"
+version = "1.0.1"
 description = "Complex Object Metric - A library for measuring complexity of Python objects"
 readme = "README.md"
 license = "MIT"
