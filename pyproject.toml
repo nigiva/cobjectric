@@ -31,12 +31,12 @@ build-backend = "uv_build"
 [tool.mypy]
 plugins = []
 disable_error_code = ["import-untyped"]
-exclude = '\.venv|\.git|.*\.ipynb'
+exclude = '\.venv|\.git|.*\.ipynb|\.github/scripts'
 
 [tool.isort]
 profile = "black"
 skip_glob = ["*.ipynb"]
-extend_skip = [".venv", ".git", "__pycache__"]
+extend_skip = [".venv", ".git", "__pycache__", ".github/scripts"]
 
 [tool.black]
 line-length = 88
@@ -45,6 +45,7 @@ extend-exclude = '''
 /(
     \.venv
   | \.git
+  | \.github/scripts
   | \.mypy_cache
   | \.pytest_cache
   | \.ruff_cache

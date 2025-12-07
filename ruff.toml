@@ -5,6 +5,7 @@ exclude = [
     ".eggs",
     ".git",
     ".git-rewrite",
+    ".github/scripts",
     ".hg",
     ".ipynb_checkpoints",
     ".mypy_cache",
