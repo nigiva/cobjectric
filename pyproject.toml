@@ -1,6 +1,6 @@
 [project]
 name = "cobjectric"
-version = "0.1.0"
+version = "0.2.0"
 description = "Complex Object Metric - A library for measuring complexity of Python objects"
 readme = "README.md"
 authors = [{ name = "Nigiva", email = "contact@nigiva.com" }]
