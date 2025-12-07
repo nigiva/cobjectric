@@ -53,7 +53,7 @@ jobs:
     needs: code-quality
     runs-on: ubuntu-latest
     permissions:
-      contents: read
+      contents: write
       pull-requests: write
     steps:
       - name: Checkout code
@@ -78,7 +78,7 @@ jobs:
             --cov-fail-under=80 \
             --cov-report=xml:cov.xml \
             --cov-report=term:skip-covered \
-            --cov-report=json:cov.json \
+            --cov-report=json \
             --verbose
 
       - name: Upload coverage reports
@@ -88,8 +88,12 @@ jobs:
           name: coverage-reports
           path: |
             cov.xml
-            cov.json
+            coverage.json
           retention-days: 30
+
+      - name: Update Coverage Badge
+        if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+        uses: we-cli/coverage-badge-action@main
 
       - name: Comment PR with coverage
         if: github.event_name == 'pull_request'
