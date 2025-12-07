@@ -1,0 +1,227 @@
+---
+name: Release
+
+on:
+  pull_request:
+    types: [closed]
+    branches: [main]
+
+env:
+  PYTHON_VERSION: "3.13"
+
+jobs:
+  release:
+    name: Build & Release
+    if: github.event.pull_request.merged == true && startsWith(github.event.pull_request.head.ref, 'release/')
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: write
+      pull-requests: read
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+      tag: ${{ steps.version.outputs.tag }}
+      skipped: ${{ steps.check-tag.outputs.skipped }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Configure git
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Extract release type from branch name
+        id: extract-type
+        run: |
+          BRANCH="${{ github.event.pull_request.head.ref }}"
+          # Format: release/{type}/{description}
+          # Types: major, minor, patch, premajor, preminor, prepatch
+          TYPE=$(echo "$BRANCH" | cut -d'/' -f2)
+          echo "release_type=$TYPE" >> $GITHUB_OUTPUT
+          echo "Release type: $TYPE"
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v4
+        with:
+          enable-cache: true
+          cache-dependency-glob: "uv.lock"
+
+      - name: Set up Python
+        run: uv python install ${{ env.PYTHON_VERSION }}
+
+      - name: Install dependencies
+        run: uv sync --all-groups
+
+      - name: Calculate new version
+        id: version
+        run: |
+          NEW_VERSION=$(uv run python .github/scripts/bump_version.py ${{ steps.extract-type.outputs.release_type }})
+          echo "version=$NEW_VERSION" >> $GITHUB_OUTPUT
+          echo "tag=v$NEW_VERSION" >> $GITHUB_OUTPUT
+          echo "New version: $NEW_VERSION"
+
+      - name: Check if tag already exists
+        id: check-tag
+        run: |
+          TAG="v${{ steps.version.outputs.version }}"
+          if git rev-parse "$TAG" >/dev/null 2>&1; then
+            echo "Tag $TAG already exists, skipping version bump and tag creation"
+            echo "skipped=true" >> $GITHUB_OUTPUT
+          else
+            echo "Tag $TAG does not exist, proceeding with release"
+            echo "skipped=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Update version in pyproject.toml
+        if: steps.check-tag.outputs.skipped == 'false'
+        run: |
+          sed -i "s/^version = \".*\"/version = \"${{ steps.version.outputs.version }}\"/" pyproject.toml
+          cat pyproject.toml | grep "^version"
+
+      - name: Commit version bump
+        if: steps.check-tag.outputs.skipped == 'false'
+        run: |
+          git add pyproject.toml
+          git commit -m "chore: bump version to ${{ steps.version.outputs.version }}"
+          git push origin main
+
+      - name: Create and push tag
+        if: steps.check-tag.outputs.skipped == 'false'
+        run: |
+          git tag -a "${{ steps.version.outputs.tag }}" -m "Release ${{ steps.version.outputs.tag }}"
+          git push origin "${{ steps.version.outputs.tag }}"
+
+      - name: Build package
+        run: uv build
+
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: dist
+          path: dist/
+          retention-days: 30
+
+  publish:
+    name: Publish to TestPyPI
+    needs: release
+    runs-on: ubuntu-latest
+    environment:
+      name: release
+      url: https://test.pypi.org/project/cobjectric/
+    permissions:
+      id-token: write
+
+    steps:
+      - name: Download build artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: dist
+          path: dist/
+
+      - name: Publish to TestPyPI
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          repository-url: https://test.pypi.org/legacy/
+          skip-existing: true
+
+  github-release:
+    name: Create GitHub Release
+    needs: [release, publish]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: read
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Check if release already exists
+        id: check-release
+        run: |
+          TAG="${{ needs.release.outputs.tag }}"
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            echo "Release $TAG already exists, skipping"
+            echo "exists=true" >> $GITHUB_OUTPUT
+          else
+            echo "Release $TAG does not exist, creating"
+            echo "exists=false" >> $GITHUB_OUTPUT
+          fi
+        env:
+          GH_TOKEN: ${{ github.token }}
+
+      - name: Create GitHub Release
+        if: steps.check-release.outputs.exists == 'false'
+        run: |
+          TAG="${{ needs.release.outputs.tag }}"
+          PR_BODY="${{ github.event.pull_request.body }}"
+          PR_TITLE="${{ github.event.pull_request.title }}"
+
+          # Create release notes
+          NOTES="# $PR_TITLE
+
+          $PR_BODY
+
+          ---
+          **Full Changelog**: https://github.com/${{ github.repository }}/compare/...${TAG}"
+
+          gh release create "$TAG" \
+            --title "$TAG" \
+            --notes "$NOTES" \
+            --verify-tag
+        env:
+          GH_TOKEN: ${{ github.token }}
+
+      - name: Download build artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: dist
+          path: dist/
+
+      - name: Upload release assets
+        run: |
+          TAG="${{ needs.release.outputs.tag }}"
+          gh release upload "$TAG" dist/* --clobber
+        env:
+          GH_TOKEN: ${{ github.token }}
+
+  sync-dev:
+    name: Sync dev branch
+    needs: [release, github-release]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    continue-on-error: true
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Configure git
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Rebase dev from main
+        run: |
+          git fetch origin dev main
+          git checkout dev
+          git rebase origin/main
+          git push origin dev --force-with-lease
+        continue-on-error: true
+
+      - name: Report sync status
+        if: failure()
+        run: |
+          echo "::warning::Failed to sync dev branch from main. Manual rebase may be required."
+

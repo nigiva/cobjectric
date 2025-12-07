@@ -1,0 +1,101 @@
+---
+name: CI
+
+on:
+  push:
+    branches: [main, dev]
+  pull_request:
+    branches: [main, dev]
+
+env:
+  PYTHON_VERSION: "3.13"
+
+jobs:
+  code-quality:
+    name: Code Quality Checks
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v4
+        with:
+          enable-cache: true
+          cache-dependency-glob: "uv.lock"
+
+      - name: Set up Python
+        run: uv python install ${{ env.PYTHON_VERSION }}
+
+      - name: Install dependencies
+        run: uv sync --all-groups
+
+      # Quality checks - fail fast
+      - name: Check for typos
+        uses: crate-ci/typos@v1.29.6
+        with:
+          config: ./typos.toml
+
+      - name: Check code formatting (isort)
+        run: uv run isort --check-only --diff .
+
+      - name: Check code formatting (black)
+        run: uv run black --check --diff .
+
+      - name: Lint code (ruff)
+        run: uv run ruff check --config=./ruff.toml .
+
+      - name: Type check (mypy)
+        run: uv run mypy src
+
+  test:
+    name: Tests & Coverage
+    needs: code-quality
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v4
+        with:
+          enable-cache: true
+          cache-dependency-glob: "uv.lock"
+
+      - name: Set up Python
+        run: uv python install ${{ env.PYTHON_VERSION }}
+
+      - name: Install dependencies
+        run: uv sync --all-groups
+
+      - name: Run tests with coverage
+        run: |
+          uv run pytest \
+            --cov=src/cobjectric \
+            --cov-fail-under=80 \
+            --cov-report=xml:cov.xml \
+            --cov-report=term:skip-covered \
+            --cov-report=json:cov.json \
+            --verbose
+
+      - name: Upload coverage reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-reports
+          path: |
+            cov.xml
+            cov.json
+          retention-days: 30
+
+      - name: Comment PR with coverage
+        if: github.event_name == 'pull_request'
+        uses: py-cov-action/python-coverage-comment-action@v3
+        with:
+          GITHUB_TOKEN: ${{ github.token }}
+          MINIMUM_GREEN: 90
+          MINIMUM_ORANGE: 80
+
