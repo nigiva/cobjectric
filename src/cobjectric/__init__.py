@@ -6,7 +6,7 @@ __version__ = version("cobjectric")
 def status() -> bool:
     """
     Check if the library is working
-    
+
     Returns:
         bool: True if the library is working, False otherwise
     """
