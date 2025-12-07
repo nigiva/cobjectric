@@ -83,10 +83,14 @@ jobs:
           sed -i "s/^version = \".*\"/version = \"${{ steps.version.outputs.version }}\"/" pyproject.toml
           cat pyproject.toml | grep "^version"
 
+      - name: Update uv.lock
+        if: steps.check-tag.outputs.skipped == 'false'
+        run: uv lock
+
       - name: Commit version bump
         if: steps.check-tag.outputs.skipped == 'false'
         run: |
-          git add pyproject.toml
+          git add pyproject.toml uv.lock
           git commit -m "chore: bump version to ${{ steps.version.outputs.version }}"
           git push origin main
 
