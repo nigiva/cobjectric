@@ -161,23 +161,23 @@ jobs:
         if: steps.check-release.outputs.exists == 'false'
         run: |
           TAG="${{ needs.release.outputs.tag }}"
-          PR_BODY="${{ github.event.pull_request.body }}"
-          PR_TITLE="${{ github.event.pull_request.title }}"
 
-          # Create release notes
-          NOTES="# $PR_TITLE
-
-          $PR_BODY
-
-          ---
-          **Full Changelog**: https://github.com/${{ github.repository }}/compare/...${TAG}"
+          # Create release notes file to avoid shell escaping issues
+          echo "# ${PR_TITLE}" > release_notes.md
+          echo "" >> release_notes.md
+          echo "${PR_BODY}" >> release_notes.md
+          echo "" >> release_notes.md
+          echo "---" >> release_notes.md
+          echo "**Full Changelog**: https://github.com/${{ github.repository }}/compare/...${TAG}" >> release_notes.md
 
           gh release create "$TAG" \
             --title "$TAG" \
-            --notes "$NOTES" \
+            --notes-file release_notes.md \
             --verify-tag
         env:
           GH_TOKEN: ${{ github.token }}
+          PR_TITLE: ${{ github.event.pull_request.title }}
+          PR_BODY: ${{ github.event.pull_request.body }}
 
       - name: Download build artifacts
         uses: actions/download-artifact@v4
