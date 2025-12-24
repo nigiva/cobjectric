@@ -6,10 +6,11 @@ This guide explains how to use `BaseModel`, `Field`, `FieldCollection`, and rela
 
 1. [BaseModel](#basemodel)
 2. [Nested Models](#nested-models)
-3. [Fields](#fields)
-4. [FieldCollection](#fieldcollection)
-5. [MissingValue](#missingvalue)
-6. [API Reference](#api-reference)
+3. [List Fields](#list-fields)
+4. [Fields](#fields)
+5. [FieldCollection](#fieldcollection)
+6. [MissingValue](#missingvalue)
+7. [API Reference](#api-reference)
 
 ## BaseModel
 
@@ -223,6 +224,179 @@ user = User(
     age="thirty",  # Wrong type
 )
 print(user.fields.age.value)  # MissingValue
+```
+
+## List Fields
+
+You can define fields that contain lists of values. Lists can contain primitive types (str, int, float, bool) or nested `BaseModel` instances.
+
+### Defining List Fields
+
+```python
+from cobjectric import BaseModel
+
+class Person(BaseModel):
+    name: str
+    skills: list[str]
+    scores: list[int]
+```
+
+### List of Primitive Types
+
+```python
+person = Person(
+    name="John Doe",
+    skills=["Python", "JavaScript", "Rust"],
+    scores=[85, 90, 95],
+)
+print(person.fields.skills.value)  # ["Python", "JavaScript", "Rust"]
+print(person.fields.scores.value)  # [85, 90, 95]
+```
+
+### List of BaseModel Instances
+
+```python
+class Experience(BaseModel):
+    title: str
+    company: str
+    start_date: str
+    end_date: str
+
+class Person(BaseModel):
+    name: str
+    experiences: list[Experience]
+
+person = Person.from_dict({
+    "name": "John Doe",
+    "experiences": [
+        {
+            "title": "Software Engineer",
+            "company": "Tech Corp",
+            "start_date": "2020-01-01",
+            "end_date": "2022-01-01",
+        },
+        {
+            "title": "Senior Engineer",
+            "company": "Big Tech",
+            "start_date": "2022-01-01",
+            "end_date": "2024-01-01",
+        },
+    ],
+})
+
+print(person.fields.experiences.value)  # [Experience(...), Experience(...)]
+print(person.fields.experiences.value[0].fields.title.value)  # "Software Engineer"
+```
+
+### List Validation and Partial Filtering
+
+Lists are validated element by element. **Valid elements are kept, invalid elements are filtered out**:
+
+```python
+person = Person(
+    name="John Doe",
+    scores=[85, 90, "invalid", 95],  # Contains a string instead of int
+)
+print(person.fields.scores.value)  # [85, 90, 95] - invalid element filtered out
+```
+
+If **all elements are invalid**, the list will have the value `MissingValue`:
+
+```python
+person = Person(
+    name="John Doe",
+    scores=["a", "b", "c"],  # All elements are invalid
+)
+print(person.fields.scores.value is MissingValue)  # True
+```
+
+For lists of `BaseModel` instances, non-dict elements are filtered out:
+
+```python
+person = Person.from_dict({
+    "name": "John Doe",
+    "experiences": [
+        {"title": "Engineer", "company": "Tech Corp"},
+        "invalid string",  # This will be filtered out
+        {"title": "Senior", "company": "Big Tech"},
+    ],
+})
+print(len(person.fields.experiences.value))  # 2 - only dicts are kept
+```
+
+### Empty Lists
+
+Empty lists are valid:
+
+```python
+person = Person(name="John Doe", skills=[])
+print(person.fields.skills.value)  # []
+```
+
+### Missing Lists
+
+Lists that are not provided will have the value `MissingValue`:
+
+```python
+person = Person(name="John Doe")
+print(person.fields.skills.value is MissingValue)  # True
+```
+
+### Supported Types
+
+Only **JSON-compatible types** are supported:
+- Primitive types: `str`, `int`, `float`, `bool`
+- Lists: `list[T]` where `T` is a supported type
+- Nested models: `BaseModel` subclasses
+
+### Unsupported Types
+
+The following types are **not supported** and will raise exceptions:
+
+**Union types in lists:**
+```python
+from cobjectric import UnsupportedListTypeError
+
+class Person(BaseModel):
+    name: str
+    mixed: list[str | int]  # This will raise an error
+
+try:
+    person = Person(name="John Doe", mixed=["a", 1])
+except UnsupportedListTypeError as e:
+    print(f"Error: {e}")
+    # Output: Error: Unsupported list type: list[str | int]. List fields must contain
+    # a single type (e.g., list[str], list[int], list[MyModel]). Union types like
+    # list[str | int] are not supported.
+```
+
+**List without type arguments:**
+```python
+from cobjectric import MissingListTypeArgError
+
+class Person(BaseModel):
+    name: str
+    items: list  # This will raise an error
+
+try:
+    person = Person(name="John Doe", items=["a", 1])
+except MissingListTypeArgError as e:
+    print(f"Error: {e}")
+    # Output: Error: List type must specify an element type. Use list[str], list[int],
+    # list[MyModel], etc. instead of bare 'list'.
+```
+
+**Other unsupported types:**
+```python
+from cobjectric import UnsupportedTypeError
+
+# These will all raise UnsupportedTypeError:
+class Person(BaseModel):
+    data: t.Any      # Not supported
+    data: object     # Not supported
+    tags: set[str]   # Not supported
+    pair: tuple[str, int]  # Not supported
+    data: dict       # Not supported (use dict[str, T] instead)
 ```
 
 ## Fields
