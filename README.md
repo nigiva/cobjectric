@@ -105,9 +105,51 @@ person = Person.from_dict({
 })
 ```
 
+### Nested Models
+
+You can define nested models by using another `BaseModel` subclass as a field type:
+
+```python
+from cobjectric import BaseModel
+
+class Address(BaseModel):
+    street: str
+    city: str
+    state: str
+    zip_code: str
+    country: str
+
+class Person(BaseModel):
+    name: str
+    age: int
+    email: str
+    is_active: bool
+    address: Address
+
+# Create from dictionary with nested model
+person = Person.from_dict({
+    "name": "John Doe",
+    "age": 30,
+    "email": "john.doe@example.com",
+    "is_active": True,
+    "address": {
+        "street": "123 Main St",
+        "city": "Anytown",
+        "state": "CA",
+        "zip_code": "12345",
+        "country": "USA",
+    },
+})
+
+# Access nested model fields
+print(person.fields.address.fields.street.value)  # "123 Main St"
+print(person.fields.address.fields.city.value)    # "Anytown"
+```
+
 ### Features
 
 - **Typed Fields**: Define fields with type annotations
+- **Nested Models**: Support for nested model structures
 - **Type Validation**: Fields with invalid types are marked as missing
 - **Readonly Models**: Model instances are immutable after creation
 - **Easy Field Access**: Access fields via the `.fields` attribute
