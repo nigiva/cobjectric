@@ -48,6 +48,19 @@ class BaseModel:
         setattr(self, "_fields", fields)  # noqa: B010
         setattr(self, "_initialized", True)  # noqa: B010
 
+    @classmethod
+    def from_dict(cls, data: dict[str, t.Any]) -> t.Self:
+        """
+        Create a BaseModel instance from a dictionary.
+
+        Args:
+            data: Dictionary mapping field names to values.
+
+        Returns:
+            A new instance of the model with fields populated from the dictionary.
+        """
+        return cls(**data)
+
     @property
     def fields(self) -> FieldCollection:
         """

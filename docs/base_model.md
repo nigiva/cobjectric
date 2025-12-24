@@ -41,6 +41,31 @@ user = User(
 )
 ```
 
+### Creating Instances from Dictionaries
+
+You can also create instances from dictionaries using the `from_dict` class method:
+
+```python
+user = User.from_dict({
+    "username": "john_doe",
+    "email": "john@example.com",
+    "age": 30,
+    "is_admin": False,
+})
+```
+
+This is particularly useful when working with JSON data or dictionaries from external sources:
+
+```python
+data = {
+    "username": "jane_doe",
+    "email": "jane@example.com",
+    "age": 25,
+    "is_admin": True,
+}
+user = User.from_dict(data)
+```
+
 ### Model Properties
 
 #### Immutability
@@ -165,6 +190,7 @@ if user.fields.age.value is MissingValue:
 
 - **`fields`** (property): Returns a `FieldCollection` containing all fields
 - **`__init__(**kwargs)`**: Initialize the model with field values
+- **`from_dict(data: dict[str, Any])`** (classmethod): Create a model instance from a dictionary
 
 ### Field
 
@@ -242,5 +268,28 @@ user = User(
     age="twenty",
 )
 print(user.fields.age.value is MissingValue)  # True
+```
+
+### Example 4: Creating from Dictionary
+
+```python
+from cobjectric import BaseModel
+
+class Person(BaseModel):
+    name: str
+    age: int
+    email: str
+    is_active: bool
+
+# Create from dictionary
+person = Person.from_dict({
+    "name": "John Doe",
+    "age": 30,
+    "email": "john.doe@example.com",
+    "is_active": True,
+})
+
+print(person.fields.name.value)  # "John Doe"
+print(person.fields.age.value)   # 30
 ```
 
