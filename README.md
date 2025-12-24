@@ -146,11 +146,57 @@ print(person.fields.address.fields.street.value)  # "123 Main St"
 print(person.fields.address.fields.city.value)    # "Anytown"
 ```
 
+### List Fields
+
+You can also define fields that contain lists of values:
+
+```python
+from cobjectric import BaseModel
+
+class Experience(BaseModel):
+    title: str
+    company: str
+    start_date: str
+    end_date: str
+
+class Person(BaseModel):
+    name: str
+    age: int
+    email: str
+    is_active: bool
+    skills: list[str]
+    experiences: list[Experience]
+
+# Create from dictionary with list fields
+person = Person.from_dict({
+    "name": "John Doe",
+    "age": 30,
+    "email": "john.doe@example.com",
+    "is_active": True,
+    "skills": ["Python", "JavaScript", "Rust"],
+    "experiences": [
+        {
+            "title": "Software Engineer",
+            "company": "Tech Corp",
+            "start_date": "2020-01-01",
+            "end_date": "2022-01-01",
+        },
+    ],
+})
+
+# Access list fields
+print(person.fields.skills.value)  # ["Python", "JavaScript", "Rust"]
+print(person.fields.experiences.value[0].fields.title.value)  # "Software Engineer"
+```
+
 ### Features
 
 - **Typed Fields**: Define fields with type annotations
+- **List Fields**: Support for list types with single element types (e.g., `list[str]`, `list[MyModel]`)
+  - **Partial Filtering**: Invalid elements are automatically filtered out, valid elements are kept
+  - **JSON-Compatible Types Only**: Only `str`, `int`, `float`, `bool`, `list[T]`, and `BaseModel` subclasses are supported
 - **Nested Models**: Support for nested model structures
-- **Type Validation**: Fields with invalid types are marked as missing
+- **Type Validation**: Fields with invalid types are marked as missing or filtered out
 - **Readonly Models**: Model instances are immutable after creation
 - **Easy Field Access**: Access fields via the `.fields` attribute
 
