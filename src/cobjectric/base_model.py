@@ -25,7 +25,7 @@ class BaseModel:
             **kwargs: Field values to set. Fields not provided will have
                 MissingValue. Fields with invalid types will also have MissingValue.
         """
-        annotations = self.__class__.__annotations__
+        annotations = getattr(self.__class__, "__annotations__", {})
         fields: dict[str, Field] = {}
 
         for field_name, field_type in annotations.items():

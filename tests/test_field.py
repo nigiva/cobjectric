@@ -39,3 +39,61 @@ def test_field_repr() -> None:
     assert "test_field" in repr_str
     assert "str" in repr_str
     assert "test_value" in repr_str
+
+
+def test_field_repr_with_generic_type() -> None:
+    """Test that Field repr works with generic types like list[str]."""
+    field = Field(
+        name="tags",
+        type=list[str],
+        value=["tag1", "tag2"],
+        specs=None,
+    )
+    repr_str = repr(field)
+    assert "tags" in repr_str
+    assert "list" in repr_str or "List" in repr_str
+    assert "tag1" in repr_str or "tag2" in repr_str
+
+
+def test_field_repr_with_dict_type() -> None:
+    """Test that Field repr works with dict types like dict[str, int]."""
+    field = Field(
+        name="metadata",
+        type=dict[str, int],
+        value={"key": 42},
+        specs=None,
+    )
+    repr_str = repr(field)
+    assert "metadata" in repr_str
+    assert "dict" in repr_str or "Dict" in repr_str
+
+
+def test_field_repr_with_optional_type() -> None:
+    """Test that Field repr works with Optional types."""
+    field = Field(
+        name="optional_field",
+        type=str | None,
+        value=None,
+        specs=None,
+    )
+    repr_str = repr(field)
+    assert "optional_field" in repr_str
+
+
+def test_field_repr_with_type_without_name() -> None:
+    """Test that Field repr works with types that don't have __name__ attribute."""
+
+    class TypeWithoutName:
+        def __repr__(self) -> str:
+            return "CustomType"
+
+    field = Field(
+        name="test_field",
+        type=TypeWithoutName(),  # Instance without __name__
+        value="test_value",
+        specs=None,
+    )
+    repr_str = repr(field)
+    assert "test_field" in repr_str
+    assert "test_value" in repr_str
+    # Should not raise AttributeError

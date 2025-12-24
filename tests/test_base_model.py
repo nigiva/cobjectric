@@ -108,3 +108,25 @@ def test_base_model_ignores_private_fields() -> None:
     assert person.fields.name.value == "John"
     with pytest.raises(AttributeError):
         _ = person.fields._private_field
+
+
+def test_base_model_without_annotations() -> None:
+    """Test that BaseModel can be instantiated without field annotations."""
+
+    class EmptyModel(BaseModel):
+        pass
+
+    instance = EmptyModel()
+    assert instance is not None
+    assert len(list(instance.fields)) == 0
+
+
+def test_base_model_without_annotations_with_kwargs() -> None:
+    """Test that BaseModel without annotations ignores kwargs."""
+
+    class EmptyModel(BaseModel):
+        pass
+
+    instance = EmptyModel(extra_field="value")
+    assert instance is not None
+    assert len(list(instance.fields)) == 0

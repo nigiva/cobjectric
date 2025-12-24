@@ -35,7 +35,10 @@ class Field:
 
     def __repr__(self) -> str:
         """Return a string representation of the Field."""
+        type_repr = getattr(self.type, "__name__", None)
+        if type_repr is None:
+            type_repr = repr(self.type)
         return (
-            f"Field(name={self.name!r}, type={self.type.__name__}, "
+            f"Field(name={self.name!r}, type={type_repr}, "
             f"value={self.value!r}, specs={self.specs})"
         )
