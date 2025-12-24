@@ -5,10 +5,11 @@ This guide explains how to use `BaseModel`, `Field`, `FieldCollection`, and rela
 ## Table of Contents
 
 1. [BaseModel](#basemodel)
-2. [Fields](#fields)
-3. [FieldCollection](#fieldcollection)
-4. [MissingValue](#missingvalue)
-5. [API Reference](#api-reference)
+2. [Nested Models](#nested-models)
+3. [Fields](#fields)
+4. [FieldCollection](#fieldcollection)
+5. [MissingValue](#missingvalue)
+6. [API Reference](#api-reference)
 
 ## BaseModel
 
@@ -64,6 +65,132 @@ data = {
     "is_admin": True,
 }
 user = User.from_dict(data)
+```
+
+## Nested Models
+
+You can define nested models by using another `BaseModel` subclass as a field type. When creating instances from dictionaries, nested dictionaries are automatically converted to model instances.
+
+### Defining Nested Models
+
+```python
+from cobjectric import BaseModel
+
+class Address(BaseModel):
+    street: str
+    city: str
+    state: str
+    zip_code: str
+    country: str
+
+class Person(BaseModel):
+    name: str
+    age: int
+    email: str
+    is_active: bool
+    address: Address
+```
+
+### Creating Nested Models from Dictionaries
+
+When using `from_dict`, nested dictionaries are automatically converted to model instances:
+
+```python
+person = Person.from_dict({
+    "name": "John Doe",
+    "age": 30,
+    "email": "john.doe@example.com",
+    "is_active": True,
+    "address": {
+        "street": "123 Main St",
+        "city": "Anytown",
+        "state": "CA",
+        "zip_code": "12345",
+        "country": "USA",
+    },
+})
+```
+
+### Accessing Nested Model Fields
+
+Nested models are accessed directly through the `.fields` attribute, not as `Field` instances:
+
+```python
+# Access the nested model
+address = person.fields.address  # Returns an Address instance
+
+# Access fields of the nested model
+print(address.fields.street.value)  # "123 Main St"
+print(address.fields.city.value)   # "Anytown"
+```
+
+### Creating Nested Models with Instances
+
+You can also pass model instances directly when creating a model:
+
+```python
+address = Address(
+    street="123 Main St",
+    city="Anytown",
+    state="CA",
+    zip_code="12345",
+    country="USA",
+)
+
+person = Person(
+    name="John Doe",
+    age=30,
+    email="john.doe@example.com",
+    is_active=True,
+    address=address,
+)
+```
+
+### Deeply Nested Models
+
+You can nest models at multiple levels:
+
+```python
+class Country(BaseModel):
+    name: str
+    code: str
+
+class Address(BaseModel):
+    street: str
+    city: str
+    country: Country
+
+class Person(BaseModel):
+    name: str
+    address: Address
+
+person = Person.from_dict({
+    "name": "John Doe",
+    "address": {
+        "street": "123 Main St",
+        "city": "Anytown",
+        "country": {
+            "name": "United States",
+            "code": "US",
+        },
+    },
+})
+
+# Access deeply nested fields
+print(person.fields.address.fields.country.fields.name.value)  # "United States"
+```
+
+### Missing Nested Models
+
+If a nested model is not provided or has an invalid type, it will have the value `MissingValue`:
+
+```python
+person = Person.from_dict({
+    "name": "John Doe",
+    # address is missing
+})
+
+print(person.fields.address.value is MissingValue)  # True
 ```
 
 ### Model Properties
@@ -123,7 +250,7 @@ print(name_field.value)  # "bob"
 
 ## FieldCollection
 
-`FieldCollection` is a collection of `Field` instances that provides convenient access to all fields in a model.
+`FieldCollection` is a collection of `Field` instances or `BaseModel` instances (for nested models) that provides convenient access to all fields in a model.
 
 ### Accessing Fields by Attribute
 
@@ -211,8 +338,8 @@ Field(name: str, type: type, value: Any, specs: Any)
 
 #### Methods
 
-- **`__getattr__(name: str) -> Field`**: Get a field by name
-- **`__iter__() -> Iterator[Field]`**: Iterate over all fields
+- **`__getattr__(name: str) -> Field | BaseModel`**: Get a field by name (returns a `Field` for primitive types or a `BaseModel` instance for nested models)
+- **`__iter__() -> Iterator[Field | BaseModel]`**: Iterate over all fields
 
 ### Exceptions
 
@@ -291,5 +418,44 @@ person = Person.from_dict({
 
 print(person.fields.name.value)  # "John Doe"
 print(person.fields.age.value)   # 30
+```
+
+### Example 5: Nested Models
+
+```python
+from cobjectric import BaseModel
+
+class Address(BaseModel):
+    street: str
+    city: str
+    state: str
+    zip_code: str
+    country: str
+
+class Person(BaseModel):
+    name: str
+    age: int
+    email: str
+    is_active: bool
+    address: Address
+
+# Create from dictionary with nested model
+person = Person.from_dict({
+    "name": "John Doe",
+    "age": 30,
+    "email": "john.doe@example.com",
+    "is_active": True,
+    "address": {
+        "street": "123 Main St",
+        "city": "Anytown",
+        "state": "CA",
+        "zip_code": "12345",
+        "country": "USA",
+    },
+})
+
+print(person.fields.name.value)  # "John Doe"
+print(person.fields.address.fields.street.value)  # "123 Main St"
+print(person.fields.address.fields.city.value)    # "Anytown"
 ```
 

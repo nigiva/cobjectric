@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import typing as t
 
 from cobjectric.field import Field
@@ -14,7 +16,7 @@ class BaseModel:
     readonly access to Field instances.
     """
 
-    _fields: dict[str, Field]
+    _fields: dict[str, Field | BaseModel]
     _initialized: bool
 
     def __init__(self, **kwargs: t.Any) -> None:
@@ -26,7 +28,7 @@ class BaseModel:
                 MissingValue. Fields with invalid types will also have MissingValue.
         """
         annotations = getattr(self.__class__, "__annotations__", {})
-        fields: dict[str, Field] = {}
+        fields: dict[str, Field | BaseModel] = {}
 
         for field_name, field_type in annotations.items():
             if field_name.startswith("_"):
@@ -34,16 +36,36 @@ class BaseModel:
 
             value = kwargs.get(field_name, MissingValue)
 
+            is_nested_model = isinstance(field_type, type) and issubclass(
+                field_type, BaseModel
+            )
+
             if value is not MissingValue:
-                if not isinstance(value, field_type):
+                if is_nested_model:
+                    if isinstance(value, dict):
+                        value = field_type.from_dict(value)
+                    elif not isinstance(value, field_type):
+                        value = MissingValue
+                elif not isinstance(value, field_type):
                     value = MissingValue
 
-            fields[field_name] = Field(
-                name=field_name,
-                type=field_type,
-                value=value,
-                specs=None,
-            )
+            if is_nested_model:
+                if value is not MissingValue and isinstance(value, BaseModel):
+                    fields[field_name] = value
+                else:
+                    fields[field_name] = Field(
+                        name=field_name,
+                        type=field_type,
+                        value=value,
+                        specs=None,
+                    )
+            else:
+                fields[field_name] = Field(
+                    name=field_name,
+                    type=field_type,
+                    value=value,
+                    specs=None,
+                )
 
         setattr(self, "_fields", fields)  # noqa: B010
         setattr(self, "_initialized", True)  # noqa: B010
