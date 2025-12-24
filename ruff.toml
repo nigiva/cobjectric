@@ -69,6 +69,7 @@ select = [
 ignore = [
     "ANN204", # Missing return type annotation for __init__, __new__, or __call__
     "ANN003", # Kwarg type annotation missing
+    "ANN401", # Dynamically typed expressions (Any) in **kwargs
     "S101",   # Use of assert detected
     "I001",   # Not aligned with isort
 ]

@@ -67,14 +67,45 @@ uv run inv --help precommit
 
 ## 📚 Usage
 
-**TODO**: Add usage examples and API documentation
+### Quick Example
+
+Define a model with typed fields:
 
 ```python
-# Example usage will go here
-from cobjectric import ...
+from cobjectric import BaseModel
 
-# TODO: Add code examples
+class Person(BaseModel):
+    name: str
+    age: int
+    email: str
+    is_active: bool
+
+# Create an instance
+person = Person(
+    name="John Doe",
+    age=30,
+    email="john.doe@example.com",
+    is_active=True,
+)
+
+# Access fields
+print(person.fields.name.value)   # "John Doe"
+print(person.fields.age.value)    # 30
 ```
+
+### Features
+
+- **Typed Fields**: Define fields with type annotations
+- **Type Validation**: Fields with invalid types are marked as missing
+- **Readonly Models**: Model instances are immutable after creation
+- **Easy Field Access**: Access fields via the `.fields` attribute
+
+### Documentation
+
+For more information, see the [documentation](docs/index.md):
+
+- [Quick Start](docs/quickstart.md) - Get started in 5 minutes
+- [BaseModel and Fields](docs/base_model.md) - Detailed guide and API reference
 
 ## 📝 License
 
