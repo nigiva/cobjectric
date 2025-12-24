@@ -93,6 +93,18 @@ print(person.fields.name.value)   # "John Doe"
 print(person.fields.age.value)    # 30
 ```
 
+You can also create instances from dictionaries:
+
+```python
+# Create from dictionary
+person = Person.from_dict({
+    "name": "John Doe",
+    "age": 30,
+    "email": "john.doe@example.com",
+    "is_active": True,
+})
+```
+
 ### Features
 
 - **Typed Fields**: Define fields with type annotations
