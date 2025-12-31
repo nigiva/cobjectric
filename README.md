@@ -1,7 +1,5 @@
 # Cobjectric
 
-> [!WARNING] > **Status**: 🚧 Work in Progress - This project is in early development
-
 **Complex Object Metric** - A Python library for computing metrics on complex objects (JSON, dictionaries, lists, etc.).
 
 [![CI](https://github.com/nigiva/cobjectric/actions/workflows/ci.yml/badge.svg)](https://github.com/nigiva/cobjectric/actions/workflows/ci.yml)
@@ -69,236 +67,45 @@ uv run inv --help precommit
 
 ### Quick Example
 
-Define a model with typed fields:
-
-```python
-from cobjectric import BaseModel
-
-class Person(BaseModel):
-    name: str
-    age: int
-    email: str
-    is_active: bool
-
-# Create an instance
-person = Person(
-    name="John Doe",
-    age=30,
-    email="john.doe@example.com",
-    is_active=True,
-)
-
-# Access fields
-print(person.fields.name.value)   # "John Doe"
-print(person.fields.age.value)    # 30
-```
-
-You can also create instances from dictionaries:
-
-```python
-# Create from dictionary
-person = Person.from_dict({
-    "name": "John Doe",
-    "age": 30,
-    "email": "john.doe@example.com",
-    "is_active": True,
-})
-```
-
-### Nested Models
-
-You can define nested models by using another `BaseModel` subclass as a field type:
-
-```python
-from cobjectric import BaseModel
-
-class Address(BaseModel):
-    street: str
-    city: str
-    state: str
-    zip_code: str
-    country: str
-
-class Person(BaseModel):
-    name: str
-    age: int
-    email: str
-    is_active: bool
-    address: Address
-
-# Create from dictionary with nested model
-person = Person.from_dict({
-    "name": "John Doe",
-    "age": 30,
-    "email": "john.doe@example.com",
-    "is_active": True,
-    "address": {
-        "street": "123 Main St",
-        "city": "Anytown",
-        "state": "CA",
-        "zip_code": "12345",
-        "country": "USA",
-    },
-})
-
-# Access nested model fields
-print(person.fields.address.fields.street.value)  # "123 Main St"
-print(person.fields.address.fields.city.value)    # "Anytown"
-```
-
-### List Fields
-
-You can also define fields that contain lists of values:
-
-```python
-from cobjectric import BaseModel
-
-class Experience(BaseModel):
-    title: str
-    company: str
-    start_date: str
-    end_date: str
-
-class Person(BaseModel):
-    name: str
-    age: int
-    email: str
-    is_active: bool
-    skills: list[str]
-    experiences: list[Experience]
-
-# Create from dictionary with list fields
-person = Person.from_dict({
-    "name": "John Doe",
-    "age": 30,
-    "email": "john.doe@example.com",
-    "is_active": True,
-    "skills": ["Python", "JavaScript", "Rust"],
-    "experiences": [
-        {
-            "title": "Software Engineer",
-            "company": "Tech Corp",
-            "start_date": "2020-01-01",
-            "end_date": "2022-01-01",
-        },
-    ],
-})
-
-# Access list fields
-print(person.fields.skills.value)  # ["Python", "JavaScript", "Rust"]
-print(person.fields.experiences.value[0].fields.title.value)  # "Software Engineer"
-```
-
-### Optional Fields and Union Types
-
-You can define optional fields and union types:
-
-```python
-from cobjectric import BaseModel
-
-class Person(BaseModel):
-    name: str
-    email: str | None  # Optional field
-    id: str | int      # Union type
-    scores: dict[str, int]  # Typed dict
-
-# Create from dictionary
-person = Person.from_dict({
-    "name": "John Doe",
-    "email": "john.doe@example.com",  # or None
-    "id": 123,  # or "abc123"
-    "scores": {"math": 90, "english": 85},
-})
-
-# Access fields
-print(person.fields.email.value)  # "john.doe@example.com" or None
-print(person.fields.id.value)   # 123
-print(person.fields.scores.value)  # {"math": 90, "english": 85}
-```
-
-### Field Specifications (Spec)
-
-You can add metadata to fields using the `Spec()` function:
+Cobjectric allows you to define typed models and compute **fill rate** metrics to measure data completeness:
 
 ```python
 from cobjectric import BaseModel, Spec
 
 class Person(BaseModel):
-    name: str = Spec(metadata={"description": "The name of the person"})
-    age: int = Spec()
+    name: str = Spec(fill_rate_func=lambda x: len(x) / 100)
+    age: int
     email: str
-    is_active: bool
 
+# Create from dictionary
 person = Person.from_dict({
     "name": "John Doe",
     "age": 30,
     "email": "john.doe@example.com",
-    "is_active": True,
 })
 
-# Access field specifications
-print(person.fields.name.spec.metadata)
-# {"description": "The name of the person"}
+# Compute fill rate (scoring)
+result = person.compute_fill_rate()
 
-# Fields without Spec() have default FieldSpec with empty metadata
-print(person.fields.email.spec.metadata)
-# {}
+print(result.fields.name.value)   # 0.08 (len("John Doe") = 8, 8/100)
+print(result.fields.age.value)    # 1.0 (present)
+print(result.fields.email.value)  # 1.0 (present)
+print(result.mean())              # 0.693... (average fill rate)
 ```
 
-### Field Normalizers
+Fill rate measures how "complete" each field is (0.0 = missing, 1.0 = present). You can define custom fill rate functions or use the default (0.0 for missing, 1.0 for present).
 
-You can define normalizers to transform field values before type validation:
-
-```python
-from cobjectric import BaseModel, Spec, field_normalizer
-import typing as t
-
-class Person(BaseModel):
-    name: str = Spec(normalizer=lambda x: x.lower())
-    email: str
-
-    @field_normalizer("email")
-    def normalize_email(x: t.Any) -> str:
-        return str(x).strip().lower()
-
-person = Person(name="JOHN DOE", email="  JOHN@EXAMPLE.COM  ")
-print(person.fields.name.value)   # "john doe"
-print(person.fields.email.value)  # "john@example.com"
-```
-
-You can also use glob patterns to match multiple fields:
-
-```python
-class Person(BaseModel):
-    name_first: str
-    name_last: str
-
-    @field_normalizer("name_*")
-    def normalize_names(x: t.Any) -> str:
-        return str(x).strip().title()
-
-person = Person(name_first="  john  ", name_last="  DOE  ")
-print(person.fields.name_first.value)  # "John"
-print(person.fields.name_last.value)   # "Doe"
-```
+See the [documentation](docs/base_model.md) for more details on nested models, list fields, normalizers, and advanced features.
 
 ### Features
 
-- **Typed Fields**: Define fields with type annotations
-- **Field Specifications**: Add metadata to fields using `Spec()` function
-- **Field Normalizers**: Transform field values before type validation using `Spec(normalizer=...)` or `@field_normalizer` decorator
-- **Optional Fields**: Support for optional fields using `str | None` or `t.Optional[str]`
-- **Union Types**: Support for union types like `str | int` or `t.Union[str, int]`
-- **Typed Dicts**: Support for typed dictionaries with `dict[str, int]` syntax
-  - **Partial Filtering**: Invalid entries are automatically filtered out, valid entries are kept
-  - **Recursive Validation**: Deep validation for nested types like `dict[str, dict[str, int]]`
-- **List Fields**: Support for list types with single element types (e.g., `list[str]`, `list[MyModel]`)
-  - **Partial Filtering**: Invalid elements are automatically filtered out, valid elements are kept
-  - **Recursive Validation**: Deep validation for nested types like `list[dict[str, int]]`
-- **Nested Models**: Support for nested model structures
-- **Type Validation**: Fields with invalid types are marked as missing or filtered out
-- **Readonly Models**: Model instances are immutable after creation
-- **Easy Field Access**: Access fields via the `.fields` attribute
+- **Fill Rate Scoring**: Compute completeness metrics (fill rate) for all fields with statistical aggregation
+- **Typed Models**: Define models with type annotations and automatic validation
+- **Nested Models**: Support for nested model structures with recursive fill rate computation
+- **Field Normalizers**: Transform field values before validation
+- **Flexible Types**: Support for optional fields, union types, typed dicts, and lists
+
+For complete feature list and details, see the [documentation](docs/base_model.md).
 
 ### Documentation
 
