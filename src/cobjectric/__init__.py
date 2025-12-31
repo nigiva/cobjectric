@@ -3,6 +3,7 @@ from importlib.metadata import version
 from cobjectric.base_model import BaseModel
 from cobjectric.exceptions import (
     CobjectricError,
+    DuplicateFillRateAccuracyFuncError,
     DuplicateFillRateFuncError,
     InvalidFillRateValueError,
     InvalidWeightError,
@@ -12,9 +13,11 @@ from cobjectric.exceptions import (
 )
 from cobjectric.field_spec import FieldSpec, Spec
 from cobjectric.fill_rate import (
+    FillRateAccuracyFuncInfo,
     FillRateFieldResult,
     FillRateFuncInfo,
     FillRateModelResult,
+    fill_rate_accuracy_func,
     fill_rate_func,
 )
 from cobjectric.normalizer import field_normalizer
@@ -30,13 +33,16 @@ __all__ = [
     "MissingListTypeArgError",
     "UnsupportedTypeError",
     "DuplicateFillRateFuncError",
+    "DuplicateFillRateAccuracyFuncError",
     "InvalidFillRateValueError",
     "InvalidWeightError",
     "FieldSpec",
     "Spec",
     "field_normalizer",
     "fill_rate_func",
+    "fill_rate_accuracy_func",
     "FillRateFieldResult",
     "FillRateFuncInfo",
+    "FillRateAccuracyFuncInfo",
     "FillRateModelResult",
 ]

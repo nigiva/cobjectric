@@ -1120,11 +1120,11 @@ print(result.mean())              # 0.666... (weighted mean)
 
 #### Decorator Weight Overrides Spec Weight
 
-If both `Spec(weight=...)` and `@fill_rate_func(..., weight=...)` are defined for the same field, the decorator weight takes precedence:
+If both `Spec(fill_rate_weight=...)` and `@fill_rate_func(..., weight=...)` are defined for the same field, the decorator weight takes precedence:
 
 ```python
 class Person(BaseModel):
-    name: str = Spec(weight=1.0)
+    name: str = Spec(fill_rate_weight=1.0)
 
     @fill_rate_func("name", weight=2.0)
     def fill_rate_name(x: t.Any) -> float:
@@ -1203,8 +1203,8 @@ The `max()` and `min()` methods are **not affected by weights** - they simply re
 
 ```python
 class Person(BaseModel):
-    name: str = Spec(fill_rate_func=lambda x: 0.3, weight=2.0)
-    age: int = Spec(fill_rate_func=lambda x: 0.8, weight=0.5)
+    name: str = Spec(fill_rate_func=lambda x: 0.3, fill_rate_weight=2.0)
+    age: int = Spec(fill_rate_func=lambda x: 0.8, fill_rate_weight=0.5)
 
 person = Person(name="John", age=30)
 result = person.compute_fill_rate()
@@ -1268,6 +1268,302 @@ print(result.fields.name.value)  # 1.0
 nested_result = result.fields.address
 print(nested_result.fields.street.value)  # 0.0
 print(nested_result.fields.city.value)    # 0.0
+```
+
+## Fill Rate Accuracy
+
+Fill rate accuracy measures whether fields are correctly filled compared to an expected model, regardless of the actual values. It's different from fill rate, which measures completeness. Fill rate accuracy checks if the "filled" or "missing" state matches between two models.
+
+### Concept
+
+Fill rate accuracy returns:
+- `1.0` if both models have the same state (both filled or both missing)
+- `0.0` if one is filled and the other is missing
+
+| got | expected | accuracy |
+|-----|----------|----------|
+| filled | filled | 1.0 |
+| MissingValue | MissingValue | 1.0 |
+| filled | MissingValue | 0.0 |
+| MissingValue | filled | 0.0 |
+
+### Computing Fill Rate Accuracy
+
+To compute fill rate accuracy, call the `compute_fill_rate_accuracy()` method with an expected model:
+
+```python
+class Person(BaseModel):
+    name: str
+    age: int
+    email: str
+
+person_got = Person.from_dict({"name": "John", "age": 30})
+person_expected = Person.from_dict({"name": "Jane", "email": "jane@example.com"})
+
+result = person_got.compute_fill_rate_accuracy(person_expected)
+
+# name: both filled -> 1.0
+print(result.fields.name.value)  # 1.0
+# age: got filled, expected missing -> 0.0
+print(result.fields.age.value)    # 0.0
+# email: got missing, expected filled -> 0.0
+print(result.fields.email.value)  # 0.0
+```
+
+### Using Spec(fill_rate_accuracy_func=...)
+
+You can define a custom fill rate accuracy function in `Spec()`:
+
+```python
+class Person(BaseModel):
+    name: str = Spec(
+        fill_rate_accuracy_func=lambda got, exp: 0.8
+        if (got is not MissingValue) == (exp is not MissingValue)
+        else 0.0
+    )
+    age: int
+
+person_got = Person(name="John", age=30)
+person_expected = Person(name="Jane", age=25)
+
+result = person_got.compute_fill_rate_accuracy(person_expected)
+print(result.fields.name.value)  # 0.8 (custom function)
+print(result.fields.age.value)   # 1.0 (default function)
+```
+
+### Using @fill_rate_accuracy_func Decorator
+
+You can also use the `@fill_rate_accuracy_func` decorator:
+
+```python
+from cobjectric import BaseModel, fill_rate_accuracy_func
+import typing as t
+
+class Person(BaseModel):
+    name: str
+    email: str
+
+    @fill_rate_accuracy_func("name", "email")
+    def accuracy_name_email(got: t.Any, expected: t.Any) -> float:
+        return 0.9 if (got is not MissingValue) == (expected is not MissingValue) else 0.0
+
+person_got = Person(name="John", email="john@example.com")
+person_expected = Person(name="Jane", email="jane@example.com")
+
+result = person_got.compute_fill_rate_accuracy(person_expected)
+print(result.fields.name.value)  # 0.9
+print(result.fields.email.value) # 0.9
+```
+
+### Separate Weights for Fill Rate Accuracy
+
+Fill rate accuracy uses its own weight system, separate from fill rate weights:
+
+```python
+class Person(BaseModel):
+    name: str = Spec(
+        fill_rate_func=lambda x: 0.5,
+        fill_rate_weight=2.0,  # Weight for compute_fill_rate()
+        fill_rate_accuracy_func=lambda got, exp: 1.0
+        if (got is not MissingValue) == (exp is not MissingValue)
+        else 0.0,
+        fill_rate_accuracy_weight=1.5,  # Weight for compute_fill_rate_accuracy()
+    )
+
+person_got = Person(name="John")
+person_expected = Person(name="Jane")
+
+# Fill rate result uses fill_rate_weight
+fill_rate_result = person_got.compute_fill_rate()
+print(fill_rate_result.fields.name.weight)  # 2.0
+
+# Accuracy result uses fill_rate_accuracy_weight
+accuracy_result = person_got.compute_fill_rate_accuracy(person_expected)
+print(accuracy_result.fields.name.weight)  # 1.5
+```
+
+### Fill Rate Accuracy with Nested Models
+
+Fill rate accuracy works recursively with nested models:
+
+```python
+class Address(BaseModel):
+    street: str
+    city: str
+
+class Person(BaseModel):
+    name: str
+    address: Address
+
+person_got = Person.from_dict({
+    "name": "John",
+    "address": {"street": "123 Main St", "city": "Anytown"},
+})
+person_expected = Person.from_dict({
+    "name": "Jane",
+    "address": {"street": "456 Oak Ave", "city": "Somewhere"},
+})
+
+result = person_got.compute_fill_rate_accuracy(person_expected)
+
+# Both have name -> 1.0
+print(result.fields.name.value)  # 1.0
+
+# Both have address with all fields -> 1.0 for nested fields
+print(result.fields.address.fields.street.value)  # 1.0
+print(result.fields.address.fields.city.value)   # 1.0
+```
+
+### Duplicate Fill Rate Accuracy Functions
+
+A field can only have one `fill_rate_accuracy_func`. If multiple functions are defined, `DuplicateFillRateAccuracyFuncError` is raised:
+
+```python
+from cobjectric import DuplicateFillRateAccuracyFuncError
+
+class Person(BaseModel):
+    name: str = Spec(fill_rate_accuracy_func=lambda got, exp: 0.5)
+
+    @fill_rate_accuracy_func("name")
+    def accuracy_name(got: t.Any, expected: t.Any) -> float:
+        return 0.6
+
+person_got = Person(name="John")
+person_expected = Person(name="Jane")
+
+try:
+    result = person_got.compute_fill_rate_accuracy(person_expected)
+except DuplicateFillRateAccuracyFuncError as e:
+    print(f"Error: {e}")
+```
+
+## Path Access
+
+You can access fields and nested fields using path notation with `["path.to.field"]`:
+
+### Simple Field Access
+
+```python
+class Person(BaseModel):
+    name: str
+    age: int
+
+person = Person(name="John", age=30)
+result = person.compute_fill_rate()
+
+# Access by path
+print(result["name"].value)  # 1.0
+print(result["age"].value)   # 1.0
+```
+
+### Nested Model Access
+
+```python
+class Address(BaseModel):
+    street: str
+    city: str
+
+class Person(BaseModel):
+    name: str
+    address: Address
+
+person = Person.from_dict({
+    "name": "John",
+    "address": {"street": "123 Main St", "city": "Anytown"},
+})
+result = person.compute_fill_rate()
+
+# Access nested fields
+print(result["address.city"].value)    # 1.0
+print(result["address.street"].value) # 1.0
+```
+
+### Path Access on BaseModel
+
+You can also use path access directly on `BaseModel` instances:
+
+```python
+class Address(BaseModel):
+    street: str
+    city: str
+
+class Person(BaseModel):
+    name: str
+    address: Address
+
+person = Person.from_dict({
+    "name": "John",
+    "address": {"street": "123 Main St", "city": "Anytown"},
+})
+
+# Access field values by path
+print(person["name"].value)           # "John"
+print(person["address.city"].value)   # "Anytown"
+print(person["address.street"].value) # "123 Main St"
+```
+
+### List Index Access (Coming Soon)
+
+Path access supports parsing list indices with the syntax `[0]`, `[1]`, etc. The syntax is recognized and parsed, but full support for accessing list elements is not yet implemented:
+
+```python
+class Item(BaseModel):
+    name: str
+    price: float
+
+class Order(BaseModel):
+    items: list[Item]
+
+order = Order.from_dict({
+    "items": [
+        {"name": "Apple", "price": 1.0},
+        {"name": "Banana", "price": 0.5},
+    ],
+})
+result = order.compute_fill_rate()
+
+# Syntax is parsed but raises KeyError when used
+# This will work in a future version:
+try:
+    _ = result["items[0].name"]  # Raises KeyError: "List index access not yet supported"
+except KeyError:
+    pass
+
+# Multiple list indices are also parsed:
+try:
+    _ = result["orders[0].items[1].name"]  # Also raises KeyError
+except KeyError:
+    pass
+```
+
+**Note**: List index access syntax (`[0]`, `[1]`, etc.) is recognized and parsed, but accessing list elements through path notation currently raises `KeyError` with the message "List index access not yet supported". Full support for list indices in path access will be available in a future version.
+
+### Invalid Paths
+
+Accessing an invalid path raises `KeyError`:
+
+```python
+class Person(BaseModel):
+    name: str
+
+person = Person(name="John")
+result = person.compute_fill_rate()
+
+try:
+    _ = result["non_existent"]
+except KeyError:
+    print("Field not found")
+
+try:
+    _ = result["name.invalid"]
+except KeyError:
+    print("Invalid nested path")
+
+# List index access currently raises KeyError
+try:
+    _ = result["items[0]"]
+except KeyError:
+    print("List index access not yet supported")
 ```
 
 ## FieldCollection

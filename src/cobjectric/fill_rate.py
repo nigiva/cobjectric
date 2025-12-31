@@ -66,6 +66,73 @@ def fill_rate_func(
     return decorator
 
 
+FillRateAccuracyFunc = t.Callable[[t.Any, t.Any], float]
+
+
+@dataclass
+class FillRateAccuracyFuncInfo:
+    """
+    Stores fill_rate_accuracy_func info attached to a method.
+
+    Attributes:
+        field_patterns: Tuple of field names or glob patterns to match.
+        func: The fill_rate_accuracy_func to apply.
+        weight: Weight for fill rate accuracy computation
+            (default: 1.0, must be >= 0.0).
+    """
+
+    field_patterns: tuple[str, ...]
+    func: FillRateAccuracyFunc
+    weight: float = 1.0
+
+
+def fill_rate_accuracy_func(
+    *field_patterns: str,
+    weight: float = 1.0,
+) -> t.Callable[[FillRateAccuracyFunc], FillRateAccuracyFunc]:
+    """
+    Decorator to define a fill_rate_accuracy_func for one or more fields.
+
+    Args:
+        *field_patterns: Field names or glob patterns (e.g., "name", "email", "name_*")
+        weight: Weight for fill rate accuracy computation
+            (default: 1.0, must be >= 0.0).
+
+    Returns:
+        Decorated function
+
+    Raises:
+        InvalidWeightError: If weight is negative (< 0.0).
+
+    Example:
+        ```python
+        class Person(BaseModel):
+            name: str
+            email: str
+
+            @fill_rate_accuracy_func("name", "email", weight=2.0)
+            def accuracy_name_email(got: t.Any, expected: t.Any) -> float:
+                return (
+                    1.0
+                    if (got is not MissingValue) == (expected is not MissingValue)
+                    else 0.0
+                )
+        ```
+    """
+    if weight < 0.0:
+        raise InvalidWeightError(weight, "decorator", "fill_rate_accuracy")
+
+    def decorator(func: FillRateAccuracyFunc) -> FillRateAccuracyFunc:
+        if not hasattr(func, "_fill_rate_accuracy_funcs"):
+            func._fill_rate_accuracy_funcs = []  # type: ignore[attr-defined]
+        func._fill_rate_accuracy_funcs.append(  # type: ignore[attr-defined]
+            FillRateAccuracyFuncInfo(field_patterns, func, weight)
+        )
+        return func
+
+    return decorator
+
+
 @dataclass
 class FillRateFieldResult:
     """
@@ -128,6 +195,120 @@ class FillRateFieldCollection:
         """Iterate over all fill rate results."""
         return iter(self._fields.values())
 
+    def __getitem__(self, path: str) -> FillRateFieldResult | FillRateModelResult:
+        """
+        Get a fill rate result by path.
+
+        Args:
+            path: Path to the field (e.g., "name", "address.city", "items[0].name").
+
+        Returns:
+            The FillRateFieldResult or FillRateModelResult instance.
+
+        Raises:
+            KeyError: If the path is invalid.
+        """
+        segments = self._parse_path(path)
+        return self._resolve_path(segments)
+
+    def _parse_path(self, path: str) -> list[str]:
+        """
+        Parse a path string into segments.
+
+        Args:
+            path: Path string (e.g., "address.city", "items[0].name").
+
+        Returns:
+            List of path segments.
+        """
+        segments: list[str] = []
+        current = ""
+        i = 0
+        while i < len(path):
+            if path[i] == ".":
+                if current:
+                    segments.append(current)
+                    current = ""
+            elif path[i] == "[":
+                if current:
+                    segments.append(current)
+                    current = ""
+                # Find closing bracket
+                j = i + 1
+                while j < len(path) and path[j] != "]":
+                    j += 1
+                if j >= len(path):
+                    raise KeyError(f"Invalid path: {path}")
+                index_str = path[i + 1 : j]
+                try:
+                    index = int(index_str)
+                    segments.append(f"[{index}]")
+                except ValueError as e:
+                    raise KeyError(f"Invalid path: {path}") from e
+                i = j
+            else:
+                current += path[i]
+            i += 1
+        if current:
+            segments.append(current)
+        return segments
+
+    def _resolve_path(
+        self, segments: list[str]
+    ) -> FillRateFieldResult | FillRateModelResult:
+        """
+        Resolve a path from segments.
+
+        Args:
+            segments: List of path segments.
+
+        Returns:
+            The FillRateFieldResult or FillRateModelResult instance.
+
+        Raises:
+            KeyError: If the path is invalid.
+        """
+        if not segments:
+            raise KeyError("Empty path")
+
+        current: FillRateFieldResult | FillRateModelResult | None = None
+        current_fields = self._fields
+
+        for i, segment in enumerate(segments):
+            if segment.startswith("[") and segment.endswith("]"):
+                # List index - not yet supported for fill rate results
+                raise KeyError(
+                    f"List index access not yet supported "
+                    f"in fill rate results: {segment}"
+                )
+
+            if segment not in current_fields:
+                raise KeyError(f"Field '{segment}' not found in path")
+
+            current = current_fields[segment]
+
+            if i < len(segments) - 1:
+                # More segments to go
+                next_segment = segments[i + 1]
+                # Check if next segment is a list index
+                if next_segment.startswith("[") and next_segment.endswith("]"):
+                    # List index - not yet supported for fill rate results
+                    raise KeyError(
+                        f"List index access not yet supported "
+                        f"in fill rate results: {next_segment}"
+                    )
+
+                # Current must be a FillRateModelResult
+                if not isinstance(current, FillRateModelResult):
+                    raise KeyError(
+                        f"Cannot access '{next_segment}' "
+                        f"on non-model field '{segment}'"
+                    )
+                current_fields = current._fields
+
+        assert current is not None, "Invalid path"
+        return current
+
     def __repr__(self) -> str:
         """Return a string representation of the FillRateFieldCollection."""
         fields_repr = ", ".join(
@@ -157,6 +338,21 @@ class FillRateModelResult:
             The FillRateFieldCollection containing all fill rate results.
         """
         return FillRateFieldCollection(self._fields)
+
+    def __getitem__(self, path: str) -> FillRateFieldResult | FillRateModelResult:
+        """
+        Get a fill rate result by path.
+
+        Args:
+            path: Path to the field (e.g., "name", "address.city", "items[0].name").
+
+        Returns:
+            The FillRateFieldResult or FillRateModelResult instance.
+
+        Raises:
+            KeyError: If the path is invalid.
+        """
+        return self.fields[path]
 
     def _collect_all_values(self) -> list[float]:
         """
