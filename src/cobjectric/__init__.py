@@ -7,6 +7,7 @@ from cobjectric.exceptions import (
     UnsupportedListTypeError,
     UnsupportedTypeError,
 )
+from cobjectric.field_spec import FieldSpec, Spec
 from cobjectric.sentinel import MissingValue
 
 __version__ = version("cobjectric")
@@ -18,6 +19,8 @@ __all__ = [
     "UnsupportedListTypeError",
     "MissingListTypeArgError",
     "UnsupportedTypeError",
+    "FieldSpec",
+    "Spec",
 ]
 
 

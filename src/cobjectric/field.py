@@ -1,6 +1,10 @@
 import typing as t
+from dataclasses import dataclass, field
+
+from cobjectric.field_spec import FieldSpec
 
 
+@dataclass
 class Field:
     """
     Represents a field in a BaseModel.
@@ -9,29 +13,13 @@ class Field:
         name: The name of the field.
         type: The type of the field.
         value: The value of the field, or MissingValue if not provided or invalid.
-        specs: The field specifications (not implemented yet).
+        spec: The field specification.
     """
 
-    def __init__(
-        self,
-        name: str,
-        type: type,
-        value: t.Any,
-        specs: t.Any,
-    ) -> None:
-        """
-        Initialize a Field.
-
-        Args:
-            name: The name of the field.
-            type: The type of the field.
-            value: The value of the field.
-            specs: The field specifications.
-        """
-        self.name = name
-        self.type = type
-        self.value = value
-        self.specs = specs
+    name: str
+    type: type
+    value: t.Any
+    spec: FieldSpec = field(default_factory=FieldSpec)
 
     def __repr__(self) -> str:
         """Return a string representation of the Field."""
@@ -40,5 +28,5 @@ class Field:
             type_repr = repr(self.type)
         return (
             f"Field(name={self.name!r}, type={type_repr}, "
-            f"value={self.value!r}, specs={self.specs})"
+            f"value={self.value!r}, spec={self.spec})"
         )
