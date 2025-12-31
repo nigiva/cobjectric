@@ -125,16 +125,50 @@ class InvalidWeightError(CobjectricError):
     Weight must be >= 0.0.
     """
 
-    def __init__(self, weight: float, source: str) -> None:
+    def __init__(
+        self, weight: float, source: str, weight_type: str = "fill_rate"
+    ) -> None:
         """
         Initialize InvalidWeightError.
 
         Args:
             weight: The invalid weight value.
             source: The source of the weight ("Spec" or "decorator").
+            weight_type: The type of weight ("fill_rate" or "fill_rate_accuracy").
         """
         self.weight = weight
         self.source = source
+        self.weight_type = weight_type
+        if weight_type == "fill_rate":
+            super().__init__(
+                f"Invalid weight in {source}: {weight}. Weight must be >= 0.0."
+            )
+        else:
+            super().__init__(
+                f"Invalid {weight_type}_weight in {source}: {weight}. "
+                "Weight must be >= 0.0."
+            )
+
+
+class DuplicateFillRateAccuracyFuncError(CobjectricError):
+    """
+    Exception raised when multiple fill_rate_accuracy_func are defined.
+
+    This exception is raised when a field has both a
+    Spec(fill_rate_accuracy_func=...) and a @fill_rate_accuracy_func decorator,
+    or multiple @fill_rate_accuracy_func decorators.
+    """
+
+    def __init__(self, field_name: str) -> None:
+        """
+        Initialize DuplicateFillRateAccuracyFuncError.
+
+        Args:
+            field_name: The name of the field with duplicate fill_rate_accuracy_func.
+        """
+        self.field_name = field_name
         super().__init__(
-            f"Invalid weight in {source}: {weight}. Weight must be >= 0.0."
+            f"Multiple fill_rate_accuracy_func defined for field '{field_name}'. "
+            "A field can only have one fill_rate_accuracy_func (either from Spec() or "
+            "@fill_rate_accuracy_func decorator, not both)."
         )

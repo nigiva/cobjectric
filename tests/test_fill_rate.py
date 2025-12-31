@@ -746,8 +746,8 @@ def test_fill_rate_weight_in_spec() -> None:
     """Test that weight can be set in Spec()."""
 
     class Person(BaseModel):
-        name: str = Spec(weight=2.0)
-        age: int = Spec(weight=0.5)
+        name: str = Spec(fill_rate_weight=2.0)
+        age: int = Spec(fill_rate_weight=0.5)
 
     person = Person(name="John", age=30)
     result = person.compute_fill_rate()
@@ -782,7 +782,7 @@ def test_fill_rate_weight_decorator_overrides_spec() -> None:
     """Test that decorator weight overrides Spec weight."""
 
     class Person(BaseModel):
-        name: str = Spec(weight=1.0)
+        name: str = Spec(fill_rate_weight=1.0)
 
         @fill_rate_func("name", weight=2.0)
         def fill_rate_name(x: t.Any) -> float:
@@ -799,8 +799,8 @@ def test_fill_rate_mean_weighted_simple() -> None:
     """Test weighted mean with different weights."""
 
     class Person(BaseModel):
-        name: str = Spec(fill_rate_func=lambda x: 0.5, weight=2.0)
-        age: int = Spec(fill_rate_func=lambda x: 1.0, weight=1.0)
+        name: str = Spec(fill_rate_func=lambda x: 0.5, fill_rate_weight=2.0)
+        age: int = Spec(fill_rate_func=lambda x: 1.0, fill_rate_weight=1.0)
 
     person = Person(name="John", age=30)
     result = person.compute_fill_rate()
@@ -813,8 +813,8 @@ def test_fill_rate_mean_weighted_zero_weight() -> None:
     """Test weighted mean with zero weight."""
 
     class Person(BaseModel):
-        name: str = Spec(fill_rate_func=lambda x: 0.5, weight=0.0)
-        age: int = Spec(fill_rate_func=lambda x: 1.0, weight=1.0)
+        name: str = Spec(fill_rate_func=lambda x: 0.5, fill_rate_weight=0.0)
+        age: int = Spec(fill_rate_func=lambda x: 1.0, fill_rate_weight=1.0)
 
     person = Person(name="John", age=30)
     result = person.compute_fill_rate()
@@ -827,8 +827,8 @@ def test_fill_rate_mean_weighted_all_zero() -> None:
     """Test weighted mean when all weights are zero."""
 
     class Person(BaseModel):
-        name: str = Spec(fill_rate_func=lambda x: 0.5, weight=0.0)
-        age: int = Spec(fill_rate_func=lambda x: 1.0, weight=0.0)
+        name: str = Spec(fill_rate_func=lambda x: 0.5, fill_rate_weight=0.0)
+        age: int = Spec(fill_rate_func=lambda x: 1.0, fill_rate_weight=0.0)
 
     person = Person(name="John", age=30)
     result = person.compute_fill_rate()
@@ -841,11 +841,11 @@ def test_fill_rate_mean_weighted_nested() -> None:
     """Test weighted mean with nested models."""
 
     class Address(BaseModel):
-        street: str = Spec(fill_rate_func=lambda x: 0.5, weight=2.0)
-        city: str = Spec(fill_rate_func=lambda x: 1.0, weight=1.0)
+        street: str = Spec(fill_rate_func=lambda x: 0.5, fill_rate_weight=2.0)
+        city: str = Spec(fill_rate_func=lambda x: 1.0, fill_rate_weight=1.0)
 
     class Person(BaseModel):
-        name: str = Spec(fill_rate_func=lambda x: 0.8, weight=1.0)
+        name: str = Spec(fill_rate_func=lambda x: 0.8, fill_rate_weight=1.0)
         address: Address
 
     person = Person.from_dict(
@@ -865,15 +865,15 @@ def test_fill_rate_mean_weighted_deeply_nested() -> None:
     """Test weighted mean with deeply nested models."""
 
     class Country(BaseModel):
-        name: str = Spec(fill_rate_func=lambda x: 0.6, weight=1.5)
-        code: str = Spec(fill_rate_func=lambda x: 1.0, weight=0.5)
+        name: str = Spec(fill_rate_func=lambda x: 0.6, fill_rate_weight=1.5)
+        code: str = Spec(fill_rate_func=lambda x: 1.0, fill_rate_weight=0.5)
 
     class Address(BaseModel):
-        street: str = Spec(fill_rate_func=lambda x: 0.5, weight=2.0)
+        street: str = Spec(fill_rate_func=lambda x: 0.5, fill_rate_weight=2.0)
         country: Country
 
     class Person(BaseModel):
-        name: str = Spec(fill_rate_func=lambda x: 0.8, weight=1.0)
+        name: str = Spec(fill_rate_func=lambda x: 0.8, fill_rate_weight=1.0)
         address: Address
 
     person = Person.from_dict(
@@ -897,9 +897,9 @@ def test_fill_rate_max_with_weights() -> None:
     """Test that max is unchanged with weights."""
 
     class Person(BaseModel):
-        name: str = Spec(fill_rate_func=lambda x: 0.3, weight=2.0)
-        age: int = Spec(fill_rate_func=lambda x: 0.8, weight=0.5)
-        email: str = Spec(fill_rate_func=lambda x: 0.5, weight=1.0)
+        name: str = Spec(fill_rate_func=lambda x: 0.3, fill_rate_weight=2.0)
+        age: int = Spec(fill_rate_func=lambda x: 0.8, fill_rate_weight=0.5)
+        email: str = Spec(fill_rate_func=lambda x: 0.5, fill_rate_weight=1.0)
 
     person = Person(name="John", age=30, email="john@example.com")
     result = person.compute_fill_rate()
@@ -912,9 +912,9 @@ def test_fill_rate_min_with_weights() -> None:
     """Test that min is unchanged with weights."""
 
     class Person(BaseModel):
-        name: str = Spec(fill_rate_func=lambda x: 0.3, weight=2.0)
-        age: int = Spec(fill_rate_func=lambda x: 0.8, weight=0.5)
-        email: str = Spec(fill_rate_func=lambda x: 0.5, weight=1.0)
+        name: str = Spec(fill_rate_func=lambda x: 0.3, fill_rate_weight=2.0)
+        age: int = Spec(fill_rate_func=lambda x: 0.8, fill_rate_weight=0.5)
+        email: str = Spec(fill_rate_func=lambda x: 0.5, fill_rate_weight=1.0)
 
     person = Person(name="John", age=30, email="john@example.com")
     result = person.compute_fill_rate()
@@ -927,11 +927,11 @@ def test_fill_rate_max_min_nested_with_weights() -> None:
     """Test max/min with nested models and weights."""
 
     class Address(BaseModel):
-        street: str = Spec(fill_rate_func=lambda x: 0.2, weight=2.0)
-        city: str = Spec(fill_rate_func=lambda x: 0.9, weight=1.0)
+        street: str = Spec(fill_rate_func=lambda x: 0.2, fill_rate_weight=2.0)
+        city: str = Spec(fill_rate_func=lambda x: 0.9, fill_rate_weight=1.0)
 
     class Person(BaseModel):
-        name: str = Spec(fill_rate_func=lambda x: 0.5, weight=1.0)
+        name: str = Spec(fill_rate_func=lambda x: 0.5, fill_rate_weight=1.0)
         address: Address
 
     person = Person.from_dict(
@@ -953,8 +953,8 @@ def test_fill_rate_weight_float_inf() -> None:
     import math
 
     class Person(BaseModel):
-        name: str = Spec(fill_rate_func=lambda x: 0.5, weight=math.inf)
-        age: int = Spec(fill_rate_func=lambda x: 1.0, weight=1.0)
+        name: str = Spec(fill_rate_func=lambda x: 0.5, fill_rate_weight=math.inf)
+        age: int = Spec(fill_rate_func=lambda x: 1.0, fill_rate_weight=1.0)
 
     person = Person(name="John", age=30)
     result = person.compute_fill_rate()
@@ -971,8 +971,8 @@ def test_fill_rate_weight_zero_sum() -> None:
     """Test weighted mean when sum of weights is zero but not all zero."""
 
     class Person(BaseModel):
-        name: str = Spec(fill_rate_func=lambda x: 0.5, weight=0.0)
-        age: int = Spec(fill_rate_func=lambda x: 1.0, weight=0.0)
+        name: str = Spec(fill_rate_func=lambda x: 0.5, fill_rate_weight=0.0)
+        age: int = Spec(fill_rate_func=lambda x: 1.0, fill_rate_weight=0.0)
 
     person = Person(name="John", age=30)
     result = person.compute_fill_rate()
@@ -985,8 +985,8 @@ def test_fill_rate_weight_large_values() -> None:
     """Test weighted mean with very large weight values."""
 
     class Person(BaseModel):
-        name: str = Spec(fill_rate_func=lambda x: 0.5, weight=1e10)
-        age: int = Spec(fill_rate_func=lambda x: 1.0, weight=1.0)
+        name: str = Spec(fill_rate_func=lambda x: 0.5, fill_rate_weight=1e10)
+        age: int = Spec(fill_rate_func=lambda x: 1.0, fill_rate_weight=1.0)
 
     person = Person(name="John", age=30)
     result = person.compute_fill_rate()
@@ -1000,7 +1000,7 @@ def test_fill_rate_weight_negative_in_spec_raises_error() -> None:
     """Test that negative weight in Spec() raises InvalidWeightError."""
 
     with pytest.raises(InvalidWeightError) as exc_info:
-        Spec(weight=-1.0)
+        Spec(fill_rate_weight=-1.0)
 
     assert "Invalid weight in Spec" in str(exc_info.value)
     assert "-1.0" in str(exc_info.value)
@@ -1028,7 +1028,7 @@ def test_fill_rate_weight_zero_allowed() -> None:
     """Test that weight = 0.0 is allowed."""
 
     class Person(BaseModel):
-        name: str = Spec(weight=0.0)
+        name: str = Spec(fill_rate_weight=0.0)
         age: int
 
     person = Person(name="John", age=30)
@@ -1052,3 +1052,94 @@ def test_fill_rate_weight_zero_allowed_in_decorator() -> None:
     result = person.compute_fill_rate()
 
     assert result.fields.name.weight == 0.0
+
+
+def test_fill_rate_field_collection_parse_path_with_brackets() -> None:
+    """Test parsing paths with list index brackets."""
+
+    class Item(BaseModel):
+        name: str
+
+    class Order(BaseModel):
+        items: list[Item]
+
+    order = Order.from_dict({"items": [{"name": "Item1"}, {"name": "Item2"}]})
+    result = order.compute_fill_rate()
+
+    # Test _parse_path with brackets
+    segments = result.fields._parse_path("items[0].name")
+    assert segments == ["items", "[0]", "name"]
+
+
+def test_fill_rate_field_collection_parse_path_simple() -> None:
+    """Test parsing simple paths."""
+
+    class Person(BaseModel):
+        name: str
+
+    person = Person(name="John")
+    result = person.compute_fill_rate()
+
+    segments = result.fields._parse_path("name")
+    assert segments == ["name"]
+
+
+def test_fill_rate_field_collection_resolve_path_basemodel_type() -> None:
+    """Test resolving paths with BaseModel nested."""
+
+    class Address(BaseModel):
+        street: str
+
+    class Person(BaseModel):
+        name: str
+        address: Address
+
+    person = Person.from_dict({"name": "John", "address": {"street": "123 Main"}})
+    result = person.compute_fill_rate()
+
+    # Access nested field in fill rate result
+    street_result = result["address.street"]
+    assert isinstance(street_result, FillRateFieldResult)
+    assert street_result.value == 1.0
+
+
+def test_fill_rate_field_collection_empty_segments_resolve() -> None:
+    """Test resolving empty segments raises KeyError."""
+
+    class Person(BaseModel):
+        name: str
+
+    person = Person(name="John")
+    result = person.compute_fill_rate()
+
+    # Empty segments should raise error
+    with pytest.raises(KeyError, match="Empty path"):
+        _ = result.fields._resolve_path([])
+
+
+def test_fill_rate_field_collection_parse_invalid_bracket() -> None:
+    """Test parsing path with unclosed bracket raises KeyError."""
+
+    class Person(BaseModel):
+        name: str
+
+    person = Person(name="John")
+    result = person.compute_fill_rate()
+
+    # Unclosed bracket
+    with pytest.raises(KeyError, match="Invalid path"):
+        _ = result.fields._parse_path("name[0")
+
+
+def test_fill_rate_field_collection_parse_non_numeric_bracket() -> None:
+    """Test parsing path with non-numeric bracket raises KeyError."""
+
+    class Person(BaseModel):
+        name: str
+
+    person = Person(name="John")
+    result = person.compute_fill_rate()
+
+    # Non-numeric index
+    with pytest.raises(KeyError, match="Invalid path"):
+        _ = result.fields._parse_path("name[abc]")

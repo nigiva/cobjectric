@@ -5,6 +5,7 @@ import types
 import typing as t
 
 from cobjectric.exceptions import (
+    DuplicateFillRateAccuracyFuncError,
     DuplicateFillRateFuncError,
     InvalidFillRateValueError,
     MissingListTypeArgError,
@@ -15,6 +16,8 @@ from cobjectric.field import Field
 from cobjectric.field_collection import FieldCollection
 from cobjectric.field_spec import FieldSpec
 from cobjectric.fill_rate import (
+    FillRateAccuracyFunc,
+    FillRateAccuracyFuncInfo,
     FillRateFieldResult,
     FillRateFunc,
     FillRateFuncInfo,
@@ -454,6 +457,36 @@ class BaseModel:
                                 fill_rate_funcs[field_name].append(info)
         return fill_rate_funcs
 
+    @classmethod
+    def _collect_fill_rate_accuracy_funcs(
+        cls,
+    ) -> dict[str, list[FillRateAccuracyFuncInfo]]:
+        """
+        Collect all @fill_rate_accuracy_func decorated methods for each field.
+
+        Returns:
+            Dict mapping field_name to list of FillRateAccuracyFuncInfo
+        """
+        fill_rate_accuracy_funcs: dict[str, list[FillRateAccuracyFuncInfo]] = {}
+        annotations = getattr(cls, "__annotations__", {})
+        field_names = [n for n in annotations if not n.startswith("_")]
+
+        # Use __dict__ to preserve declaration order
+        for attr_name, attr_value in cls.__dict__.items():
+            if attr_name.startswith("_"):
+                continue
+            if callable(attr_value) and hasattr(
+                attr_value, "_fill_rate_accuracy_funcs"
+            ):
+                for info in attr_value._fill_rate_accuracy_funcs:
+                    for pattern in info.field_patterns:
+                        for field_name in field_names:
+                            if fnmatch.fnmatch(field_name, pattern):
+                                if field_name not in fill_rate_accuracy_funcs:
+                                    fill_rate_accuracy_funcs[field_name] = []
+                                fill_rate_accuracy_funcs[field_name].append(info)
+        return fill_rate_accuracy_funcs
+
     @staticmethod
     def _default_fill_rate_func(value: t.Any) -> float:
         """
@@ -466,6 +499,22 @@ class BaseModel:
             float: 0.0 if MissingValue, 1.0 otherwise.
         """
         return 0.0 if value is MissingValue else 1.0
+
+    @staticmethod
+    def _default_fill_rate_accuracy_func(got: t.Any, expected: t.Any) -> float:
+        """
+        Default fill_rate_accuracy_func: returns 1.0 if both have same state, else 0.0.
+
+        Args:
+            got: The field value from the model being evaluated.
+            expected: The field value from the expected model.
+
+        Returns:
+            float: 1.0 if both are filled or both are MissingValue, 0.0 otherwise.
+        """
+        got_filled = got is not MissingValue
+        expected_filled = expected is not MissingValue
+        return 1.0 if got_filled == expected_filled else 0.0
 
     @staticmethod
     def _validate_fill_rate_value(field_name: str, value: t.Any) -> float:
@@ -543,9 +592,9 @@ class BaseModel:
             if decorator_funcs:
                 # Decorator weight takes precedence
                 weight_to_use = decorator_funcs[0].weight
-            elif spec.weight != 1.0:
+            elif spec.fill_rate_weight != 1.0:
                 # Use Spec weight if different from default
-                weight_to_use = spec.weight
+                weight_to_use = spec.fill_rate_weight
 
             # Check if this is a nested model
             if isinstance(field, BaseModel):
@@ -579,6 +628,177 @@ class BaseModel:
                     fill_rate_value = fill_rate_func_to_use(field_value)
                     validated_value = self._validate_fill_rate_value(
                         field_name, fill_rate_value
+                    )
+                    result_fields[field_name] = FillRateFieldResult(
+                        value=validated_value, weight=weight_to_use
+                    )
+
+        return FillRateModelResult(_fields=result_fields)
+
+    def compute_fill_rate_accuracy(self, expected: BaseModel) -> FillRateModelResult:
+        """
+        Compute fill rate accuracy for all fields compared to expected model.
+
+        Args:
+            expected: The expected model to compare against (same type).
+
+        Returns:
+            FillRateModelResult containing accuracy scores for all fields.
+            Uses fill_rate_accuracy_weight (not fill_rate_weight) for weighted mean.
+
+        Raises:
+            DuplicateFillRateAccuracyFuncError: If multiple
+                fill_rate_accuracy_func are defined for the same field.
+            InvalidFillRateValueError: If a fill_rate_accuracy_func returns
+                an invalid value.
+        """
+        # Collect decorator fill_rate_accuracy_funcs once per class
+        decorator_fill_rate_accuracy_funcs = self._collect_fill_rate_accuracy_funcs()
+
+        result_fields: dict[str, FillRateFieldResult | FillRateModelResult] = {}
+
+        for field_name, field in self._fields.items():
+            # Get corresponding field from expected model
+            expected_field = expected._fields.get(field_name)
+            if expected_field is None:
+                # Field doesn't exist in expected, treat as MissingValue
+                expected_value: t.Any = MissingValue
+            elif isinstance(expected_field, BaseModel):
+                expected_value = expected_field
+            else:
+                expected_value = expected_field.value
+
+            # Get FieldSpec
+            if isinstance(field, Field):
+                spec = field.spec
+            else:
+                # Nested model - use default spec
+                spec = FieldSpec()
+
+            # Check for duplicates
+            spec_func = spec.fill_rate_accuracy_func
+            decorator_funcs = decorator_fill_rate_accuracy_funcs.get(field_name, [])
+
+            if spec_func and decorator_funcs:
+                raise DuplicateFillRateAccuracyFuncError(field_name)
+
+            if len(decorator_funcs) > 1:
+                raise DuplicateFillRateAccuracyFuncError(field_name)
+
+            # Get the fill_rate_accuracy_func to use
+            fill_rate_accuracy_func_to_use: FillRateAccuracyFunc | None = None
+            if spec_func:
+                fill_rate_accuracy_func_to_use = spec_func
+            elif decorator_funcs:
+                fill_rate_accuracy_func_to_use = decorator_funcs[0].func
+            else:
+                fill_rate_accuracy_func_to_use = self._default_fill_rate_accuracy_func
+
+            # Get the weight to use (decorator > Spec > default 1.0)
+            weight_to_use: float = 1.0
+            if decorator_funcs:
+                # Decorator weight takes precedence
+                weight_to_use = decorator_funcs[0].weight
+            elif spec.fill_rate_accuracy_weight != 1.0:
+                # Use Spec weight if different from default
+                weight_to_use = spec.fill_rate_accuracy_weight
+
+            # Check if this is a nested model
+            if isinstance(field, BaseModel):
+                # Recursively compute fill rate accuracy for nested model
+                if isinstance(expected_value, BaseModel):
+                    nested_result = field.compute_fill_rate_accuracy(expected_value)
+                else:
+                    # Expected is MissingValue, create empty result
+                    nested_annotations = getattr(field.__class__, "__annotations__", {})
+                    nested_fields_expected_missing: dict[
+                        str, FillRateFieldResult | FillRateModelResult
+                    ] = {}
+                    for nested_field_name in nested_annotations:
+                        if nested_field_name.startswith("_"):
+                            continue
+                        nested_fields_expected_missing[nested_field_name] = (
+                            FillRateFieldResult(value=0.0, weight=1.0)
+                        )
+                    nested_result = FillRateModelResult(
+                        _fields=nested_fields_expected_missing
+                    )
+                result_fields[field_name] = nested_result
+            else:
+                # Check if this field is a nested model type but MissingValue
+                is_nested_model_type = self._is_base_model_type(field.type)
+                if is_nested_model_type:
+                    if field.value is MissingValue and expected_value is MissingValue:
+                        # Both missing - create empty result
+                        nested_model_class = field.type
+                        nested_annotations = getattr(
+                            nested_model_class, "__annotations__", {}
+                        )
+                        nested_fields_both_missing: dict[
+                            str, FillRateFieldResult | FillRateModelResult
+                        ] = {}
+                        # Both missing -> accuracy = 1.0 for all nested fields
+                        for nested_field_name in nested_annotations:
+                            if nested_field_name.startswith("_"):
+                                continue
+                            nested_fields_both_missing[nested_field_name] = (
+                                FillRateFieldResult(value=1.0, weight=1.0)
+                            )
+                        result_fields[field_name] = FillRateModelResult(
+                            _fields=nested_fields_both_missing
+                        )
+                    elif field.value is MissingValue or expected_value is MissingValue:
+                        # One missing -> accuracy = 0.0 for all nested fields
+                        nested_model_class = field.type
+                        nested_annotations = getattr(
+                            nested_model_class, "__annotations__", {}
+                        )
+                        nested_fields_one_missing: dict[
+                            str, FillRateFieldResult | FillRateModelResult
+                        ] = {}
+                        for nested_field_name in nested_annotations:
+                            if nested_field_name.startswith("_"):
+                                continue
+                            nested_fields_one_missing[nested_field_name] = (
+                                FillRateFieldResult(value=0.0, weight=1.0)
+                            )
+                        result_fields[field_name] = FillRateModelResult(
+                            _fields=nested_fields_one_missing
+                        )
+                    else:
+                        # Both present - recursively compute
+                        got_nested = field.value
+                        expected_nested = expected_value
+                        if isinstance(expected_nested, BaseModel):
+                            nested_result = got_nested.compute_fill_rate_accuracy(
+                                expected_nested
+                            )
+                        else:
+                            # Expected is not BaseModel, treat as missing
+                            nested_annotations = getattr(
+                                field.type, "__annotations__", {}
+                            )
+                            nested_fields_not_basemodel: dict[
+                                str, FillRateFieldResult | FillRateModelResult
+                            ] = {}
+                            for nested_field_name in nested_annotations:
+                                if nested_field_name.startswith("_"):
+                                    continue
+                                nested_fields_not_basemodel[nested_field_name] = (
+                                    FillRateFieldResult(value=0.0, weight=1.0)
+                                )
+                            nested_result = FillRateModelResult(
+                                _fields=nested_fields_not_basemodel
+                            )
+                        result_fields[field_name] = nested_result
+                else:
+                    # Compute fill rate accuracy for this field
+                    got_value = field.value
+                    accuracy_value = fill_rate_accuracy_func_to_use(
+                        got_value, expected_value
+                    )
+                    validated_value = self._validate_fill_rate_value(
+                        field_name, accuracy_value
                     )
                     result_fields[field_name] = FillRateFieldResult(
                         value=validated_value, weight=weight_to_use
@@ -680,6 +900,21 @@ class BaseModel:
             The FieldCollection containing all fields.
         """
         return FieldCollection(self._fields)
+
+    def __getitem__(self, path: str) -> t.Any:
+        """
+        Get a field value by path.
+
+        Args:
+            path: Path to the field (e.g., "name", "address.city", "items[0].name").
+
+        Returns:
+            The field value.
+
+        Raises:
+            KeyError: If the path is invalid.
+        """
+        return self.fields[path]
 
     def __setattr__(self, name: str, value: t.Any) -> None:
         """
