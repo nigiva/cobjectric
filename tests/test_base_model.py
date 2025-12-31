@@ -978,3 +978,406 @@ def test_validate_field_type_list_origin_no_args_direct() -> None:
         with patch("typing.get_args", return_value=()):
             with pytest.raises(MissingListTypeArgError):
                 BaseModel._validate_field_type(mock_type)
+
+
+def test_process_nested_model_value_with_dict_and_base_model() -> None:
+    """Test _process_nested_model_value with dict value and BaseModel field_type."""
+
+    class Address(BaseModel):
+        street: str
+        city: str
+
+    result = BaseModel._process_nested_model_value(
+        {"street": "123 Main St", "city": "Paris"}, Address
+    )
+    assert isinstance(result, Address)
+    assert result.fields.street.value == "123 Main St"
+    assert result.fields.city.value == "Paris"
+
+
+def test_process_nested_model_value_with_instance() -> None:
+    """Test _process_nested_model_value with BaseModel instance."""
+
+    class Address(BaseModel):
+        street: str
+        city: str
+
+    address = Address(street="123 Main St", city="Paris")
+    result = BaseModel._process_nested_model_value(address, Address)
+    assert result is address
+
+
+def test_process_nested_model_value_with_invalid_value() -> None:
+    """Test _process_nested_model_value with invalid value."""
+
+    class Address(BaseModel):
+        street: str
+        city: str
+
+    result = BaseModel._process_nested_model_value("invalid", Address)
+    assert result is MissingValue
+
+
+def test_process_nested_model_value_with_dict_and_primitive_type() -> None:
+    """Test _process_nested_model_value with dict value but primitive field_type."""
+
+    result = BaseModel._process_nested_model_value({"key": "value"}, int)
+    assert result is MissingValue
+
+
+def test_process_nested_model_value_with_dict_type_and_dict_value() -> None:
+    """Test _process_nested_model_value with dict type and dict value returns the value."""
+
+    result = BaseModel._process_nested_model_value({"key": "value"}, dict)
+    assert result == {"key": "value"}
+
+
+def test_process_nested_model_value_with_dict_type_and_non_dict_value() -> None:
+    """Test _process_nested_model_value with dict type but non-dict value."""
+
+    result = BaseModel._process_nested_model_value("not a dict", dict)
+    assert result is MissingValue
+
+
+def test_nested_base_model_with_instance() -> None:
+    """Test BaseModel with nested BaseModel instance."""
+
+    class User(BaseModel):
+        name: str
+        age: int
+
+    class Company(BaseModel):
+        name: str
+        owner: User
+
+    user = User(name="John", age=30)
+    company = Company(name="Tech Corp", owner=user)
+    assert company.fields.name.value == "Tech Corp"
+    assert isinstance(company.fields.owner, User)
+    assert company.fields.owner.fields.name.value == "John"
+    assert company.fields.owner.fields.age.value == 30
+
+
+def test_nested_base_model_with_dict() -> None:
+    """Test BaseModel with nested BaseModel from dict."""
+
+    class User(BaseModel):
+        name: str
+        age: int
+
+    class Company(BaseModel):
+        name: str
+        owner: User
+
+    company = Company(name="Tech Corp", owner={"name": "John", "age": 30})
+    assert company.fields.name.value == "Tech Corp"
+    assert isinstance(company.fields.owner, User)
+    assert company.fields.owner.fields.name.value == "John"
+    assert company.fields.owner.fields.age.value == 30
+
+
+def test_nested_base_model_from_dict() -> None:
+    """Test BaseModel.from_dict with nested BaseModel."""
+
+    class User(BaseModel):
+        name: str
+        age: int
+
+    class Company(BaseModel):
+        name: str
+        owner: User
+
+    company = Company.from_dict(
+        {
+            "name": "Tech Corp",
+            "owner": {"name": "John", "age": 30},
+        }
+    )
+    assert company.fields.name.value == "Tech Corp"
+    assert isinstance(company.fields.owner, User)
+    assert company.fields.owner.fields.name.value == "John"
+    assert company.fields.owner.fields.age.value == 30
+
+
+def test_dict_field_with_dict_value() -> None:
+    """Test BaseModel with dict field and dict value."""
+
+    class Config(BaseModel):
+        name: str
+        metadata: dict
+
+    config = Config(name="test", metadata={"key": "value", "count": 42})
+    assert config.fields.name.value == "test"
+    assert config.fields.metadata.value == {"key": "value", "count": 42}
+
+
+def test_dict_field_with_base_model_instance() -> None:
+    """Test BaseModel with dict field but BaseModel instance value."""
+
+    class User(BaseModel):
+        name: str
+
+    class Config(BaseModel):
+        name: str
+        metadata: dict
+
+    user = User(name="John")
+    config = Config(name="test", metadata=user)
+    assert config.fields.name.value == "test"
+    assert config.fields.metadata.value is MissingValue
+
+
+def test_primitive_field_with_base_model_instance() -> None:
+    """Test BaseModel with primitive field but BaseModel instance value."""
+
+    class User(BaseModel):
+        name: str
+
+    class Person(BaseModel):
+        name: str
+        age: int
+
+    user = User(name="John")
+    person = Person(name="Jane", age=user)
+    assert person.fields.name.value == "Jane"
+    assert person.fields.age.value is MissingValue
+
+
+def test_primitive_field_with_dict_value() -> None:
+    """Test BaseModel with primitive field but dict value."""
+
+    class Person(BaseModel):
+        name: str
+        age: int
+
+    person = Person(name="Jane", age={"key": "value"})
+    assert person.fields.name.value == "Jane"
+    assert person.fields.age.value is MissingValue
+
+
+def test_primitive_field_with_dict_from_dict() -> None:
+    """Test BaseModel.from_dict with primitive field but dict value."""
+
+    class Person(BaseModel):
+        name: str
+        age: int
+
+    person = Person.from_dict({"name": "Jane", "age": {"key": "value"}})
+    assert person.fields.name.value == "Jane"
+    assert person.fields.age.value is MissingValue
+
+
+def test_deeply_nested_base_model_with_mixed_values() -> None:
+    """Test deeply nested BaseModel with mixed values."""
+
+    class Country(BaseModel):
+        name: str
+        code: str
+
+    class Address(BaseModel):
+        street: str
+        city: str
+        country: Country
+
+    class Person(BaseModel):
+        name: str
+        address: Address
+
+    person = Person.from_dict(
+        {
+            "name": "John",
+            "address": {
+                "street": "123 Main St",
+                "city": "Paris",
+                "country": {"name": "France", "code": "FR"},
+            },
+        }
+    )
+    assert person.fields.name.value == "John"
+    assert isinstance(person.fields.address, Address)
+    assert person.fields.address.fields.street.value == "123 Main St"
+    assert person.fields.address.fields.city.value == "Paris"
+    assert isinstance(person.fields.address.fields.country, Country)
+    assert person.fields.address.fields.country.fields.name.value == "France"
+    assert person.fields.address.fields.country.fields.code.value == "FR"
+
+
+def test_nested_base_model_with_invalid_dict() -> None:
+    """Test nested BaseModel with invalid dict (not matching BaseModel structure)."""
+
+    class User(BaseModel):
+        name: str
+        age: int
+
+    class Company(BaseModel):
+        name: str
+        owner: User
+
+    company = Company(name="Tech Corp", owner={"invalid": "data"})
+    assert company.fields.name.value == "Tech Corp"
+    assert isinstance(company.fields.owner, User)
+    assert company.fields.owner.fields.name.value is MissingValue
+    assert company.fields.owner.fields.age.value is MissingValue
+
+
+def test_dict_field_with_nested_dict() -> None:
+    """Test dict field with nested dict structure."""
+
+    class Config(BaseModel):
+        name: str
+        settings: dict
+
+    config = Config(
+        name="app",
+        settings={
+            "database": {"host": "localhost", "port": 5432},
+            "cache": {"enabled": True},
+        },
+    )
+    assert config.fields.name.value == "app"
+    assert config.fields.settings.value == {
+        "database": {"host": "localhost", "port": 5432},
+        "cache": {"enabled": True},
+    }
+
+
+def test_string_field_with_base_model_instance() -> None:
+    """Test string field with BaseModel instance."""
+
+    class User(BaseModel):
+        name: str
+
+    class Person(BaseModel):
+        name: str
+        description: str
+
+    user = User(name="John")
+    person = Person(name="Jane", description=user)
+    assert person.fields.name.value == "Jane"
+    assert person.fields.description.value is MissingValue
+
+
+def test_string_field_with_dict_value() -> None:
+    """Test string field with dict value."""
+
+    class Person(BaseModel):
+        name: str
+        description: str
+
+    person = Person(name="Jane", description={"key": "value"})
+    assert person.fields.name.value == "Jane"
+    assert person.fields.description.value is MissingValue
+
+
+def test_bool_field_with_base_model_instance() -> None:
+    """Test bool field with BaseModel instance."""
+
+    class User(BaseModel):
+        name: str
+
+    class Person(BaseModel):
+        name: str
+        is_active: bool
+
+    user = User(name="John")
+    person = Person(name="Jane", is_active=user)
+    assert person.fields.name.value == "Jane"
+    assert person.fields.is_active.value is MissingValue
+
+
+def test_bool_field_with_dict_value() -> None:
+    """Test bool field with dict value."""
+
+    class Person(BaseModel):
+        name: str
+        is_active: bool
+
+    person = Person(name="Jane", is_active={"key": "value"})
+    assert person.fields.name.value == "Jane"
+    assert person.fields.is_active.value is MissingValue
+
+
+def test_float_field_with_base_model_instance() -> None:
+    """Test float field with BaseModel instance."""
+
+    class User(BaseModel):
+        name: str
+
+    class Product(BaseModel):
+        name: str
+        price: float
+
+    user = User(name="John")
+    product = Product(name="Widget", price=user)
+    assert product.fields.name.value == "Widget"
+    assert product.fields.price.value is MissingValue
+
+
+def test_float_field_with_dict_value() -> None:
+    """Test float field with dict value."""
+
+    class Product(BaseModel):
+        name: str
+        price: float
+
+    product = Product(name="Widget", price={"key": "value"})
+    assert product.fields.name.value == "Widget"
+    assert product.fields.price.value is MissingValue
+
+
+def test_nested_base_model_with_string_value() -> None:
+    """Test nested BaseModel field with string value."""
+
+    class User(BaseModel):
+        name: str
+        age: int
+
+    class Company(BaseModel):
+        name: str
+        owner: User
+
+    company = Company(name="Tech Corp", owner="invalid")
+    assert company.fields.name.value == "Tech Corp"
+    assert company.fields.owner.value is MissingValue
+
+
+def test_nested_base_model_with_int_value() -> None:
+    """Test nested BaseModel field with int value."""
+
+    class User(BaseModel):
+        name: str
+        age: int
+
+    class Company(BaseModel):
+        name: str
+        owner: User
+
+    company = Company(name="Tech Corp", owner=42)
+    assert company.fields.name.value == "Tech Corp"
+    assert company.fields.owner.value is MissingValue
+
+
+def test_complex_nested_with_dict_field() -> None:
+    """Test complex nested structure with dict field."""
+
+    class Metadata(BaseModel):
+        version: str
+        config: dict
+
+    class App(BaseModel):
+        name: str
+        metadata: Metadata
+
+    app = App.from_dict(
+        {
+            "name": "MyApp",
+            "metadata": {
+                "version": "1.0.0",
+                "config": {"key1": "value1", "key2": 42},
+            },
+        }
+    )
+    assert app.fields.name.value == "MyApp"
+    assert isinstance(app.fields.metadata, Metadata)
+    assert app.fields.metadata.fields.version.value == "1.0.0"
+    assert app.fields.metadata.fields.config.value == {"key1": "value1", "key2": 42}

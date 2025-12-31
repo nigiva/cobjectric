@@ -156,8 +156,13 @@ class BaseModel:
         Returns:
             A BaseModel instance or MissingValue.
         """
-        if isinstance(value, dict):
-            return field_type.from_dict(value)  # type: ignore[attr-defined]
+        is_base_model = isinstance(field_type, type) and issubclass(
+            field_type, BaseModel
+        )
+
+        if isinstance(value, dict) and is_base_model:
+            assert issubclass(field_type, BaseModel)
+            return field_type.from_dict(value)
         if isinstance(value, field_type):
             return value
         return MissingValue
