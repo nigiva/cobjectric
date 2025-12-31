@@ -5,6 +5,8 @@ import types
 import typing as t
 
 from cobjectric.exceptions import (
+    DuplicateFillRateFuncError,
+    InvalidFillRateValueError,
     MissingListTypeArgError,
     UnsupportedListTypeError,
     UnsupportedTypeError,
@@ -12,6 +14,12 @@ from cobjectric.exceptions import (
 from cobjectric.field import Field
 from cobjectric.field_collection import FieldCollection
 from cobjectric.field_spec import FieldSpec
+from cobjectric.fill_rate import (
+    FillRateFieldResult,
+    FillRateFunc,
+    FillRateFuncInfo,
+    FillRateModelResult,
+)
 from cobjectric.sentinel import MissingValue
 
 
@@ -418,6 +426,166 @@ class BaseModel:
 
         return combined
 
+    @classmethod
+    def _collect_fill_rate_funcs(
+        cls,
+    ) -> dict[str, list[FillRateFuncInfo]]:
+        """
+        Collect all @fill_rate_func decorated methods for each field.
+
+        Returns:
+            Dict mapping field_name to list of FillRateFuncInfo
+        """
+        fill_rate_funcs: dict[str, list[FillRateFuncInfo]] = {}
+        annotations = getattr(cls, "__annotations__", {})
+        field_names = [n for n in annotations if not n.startswith("_")]
+
+        # Use __dict__ to preserve declaration order
+        for attr_name, attr_value in cls.__dict__.items():
+            if attr_name.startswith("_"):
+                continue
+            if callable(attr_value) and hasattr(attr_value, "_fill_rate_funcs"):
+                for info in attr_value._fill_rate_funcs:
+                    for pattern in info.field_patterns:
+                        for field_name in field_names:
+                            if fnmatch.fnmatch(field_name, pattern):
+                                if field_name not in fill_rate_funcs:
+                                    fill_rate_funcs[field_name] = []
+                                fill_rate_funcs[field_name].append(info)
+        return fill_rate_funcs
+
+    @staticmethod
+    def _default_fill_rate_func(value: t.Any) -> float:
+        """
+        Default fill_rate_func: returns 0.0 if MissingValue, else 1.0.
+
+        Args:
+            value: The field value.
+
+        Returns:
+            float: 0.0 if MissingValue, 1.0 otherwise.
+        """
+        return 0.0 if value is MissingValue else 1.0
+
+    @staticmethod
+    def _validate_fill_rate_value(field_name: str, value: t.Any) -> float:
+        """
+        Validate that fill_rate_func returns a valid float in [0, 1].
+
+        Args:
+            field_name: The name of the field.
+            value: The value returned by fill_rate_func.
+
+        Returns:
+            float: The validated fill rate value.
+
+        Raises:
+            InvalidFillRateValueError: If value is not a float or not in [0, 1].
+        """
+        # Accept int (0, 1) and convert to float
+        if isinstance(value, int):
+            value = float(value)
+
+        if not isinstance(value, float):
+            raise InvalidFillRateValueError(field_name, value)
+
+        if not 0.0 <= value <= 1.0:
+            raise InvalidFillRateValueError(field_name, value)
+
+        return value
+
+    def compute_fill_rate(self) -> FillRateModelResult:
+        """
+        Compute fill rate for all fields in this model.
+
+        Returns:
+            FillRateModelResult containing fill rates for all fields.
+
+        Raises:
+            DuplicateFillRateFuncError: If multiple fill_rate_func are defined
+                for the same field.
+            InvalidFillRateValueError: If a fill_rate_func returns an invalid value.
+        """
+        # Collect decorator fill_rate_funcs once per class
+        decorator_fill_rate_funcs = self._collect_fill_rate_funcs()
+
+        result_fields: dict[str, FillRateFieldResult | FillRateModelResult] = {}
+
+        for field_name, field in self._fields.items():
+            # Get FieldSpec
+            if isinstance(field, Field):
+                spec = field.spec
+            else:
+                # Nested model - use default spec
+                spec = FieldSpec()
+
+            # Check for duplicates
+            spec_func = spec.fill_rate_func
+            decorator_funcs = decorator_fill_rate_funcs.get(field_name, [])
+
+            if spec_func and decorator_funcs:
+                raise DuplicateFillRateFuncError(field_name)
+
+            if len(decorator_funcs) > 1:
+                raise DuplicateFillRateFuncError(field_name)
+
+            # Get the fill_rate_func to use
+            fill_rate_func_to_use: FillRateFunc | None = None
+            if spec_func:
+                fill_rate_func_to_use = spec_func
+            elif decorator_funcs:
+                fill_rate_func_to_use = decorator_funcs[0].func
+            else:
+                fill_rate_func_to_use = self._default_fill_rate_func
+
+            # Get the weight to use (decorator > Spec > default 1.0)
+            weight_to_use: float = 1.0
+            if decorator_funcs:
+                # Decorator weight takes precedence
+                weight_to_use = decorator_funcs[0].weight
+            elif spec.weight != 1.0:
+                # Use Spec weight if different from default
+                weight_to_use = spec.weight
+
+            # Check if this is a nested model
+            if isinstance(field, BaseModel):
+                # Recursively compute fill rate for nested model
+                nested_result = field.compute_fill_rate()
+                result_fields[field_name] = nested_result
+            else:
+                # Check if this field is a nested model type but MissingValue
+                is_nested_model_type = self._is_base_model_type(field.type)
+                if is_nested_model_type and field.value is MissingValue:
+                    # Create a FillRateModelResult with all fields at 0.0
+                    nested_model_class = field.type
+                    nested_annotations = getattr(
+                        nested_model_class, "__annotations__", {}
+                    )
+                    nested_fields: dict[
+                        str, FillRateFieldResult | FillRateModelResult
+                    ] = {}
+                    for nested_field_name in nested_annotations:
+                        if nested_field_name.startswith("_"):
+                            continue
+                        nested_fields[nested_field_name] = FillRateFieldResult(
+                            value=0.0, weight=1.0
+                        )
+                    result_fields[field_name] = FillRateModelResult(
+                        _fields=nested_fields
+                    )
+                else:
+                    # Compute fill rate for this field
+                    field_value = field.value
+                    fill_rate_value = fill_rate_func_to_use(field_value)
+                    validated_value = self._validate_fill_rate_value(
+                        field_name, fill_rate_value
+                    )
+                    result_fields[field_name] = FillRateFieldResult(
+                        value=validated_value, weight=weight_to_use
+                    )
+
+        return FillRateModelResult(_fields=result_fields)
+
     def __init__(self, **kwargs: t.Any) -> None:
         """
         Initialize a BaseModel instance.
@@ -455,9 +623,12 @@ class BaseModel:
                 )
                 if combined_normalizer:
                     value = combined_normalizer(value)
-                    # Create new FieldSpec with combined normalizer
+                    # Create new FieldSpec with combined normalizer,
+                    # preserving fill_rate_func
                     spec = FieldSpec(
-                        metadata=spec.metadata, normalizer=combined_normalizer
+                        metadata=spec.metadata,
+                        normalizer=combined_normalizer,
+                        fill_rate_func=spec.fill_rate_func,
                     )
 
                 # Then validate type

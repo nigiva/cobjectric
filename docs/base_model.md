@@ -885,6 +885,391 @@ person = Person(metadata={"KEY1": "value1", "KEY2": "value2"})
 print(person.fields.metadata.value)  # {"key1": "value1", "key2": "value2"}
 ```
 
+## Fill Rate
+
+Fill rate is a metric that measures how "complete" or "filled" a field value is. It's a float between 0.0 and 1.0, where:
+- `0.0` means the field is completely empty or missing
+- `1.0` means the field is completely filled
+- Values in between represent partial completeness
+
+Fill rate is particularly useful for data quality assessment, where you want to measure how complete your data is across multiple fields.
+
+### Using Spec(fill_rate_func=...)
+
+You can define a custom fill rate function directly in the `Spec()` function:
+
+```python
+from cobjectric import BaseModel, Spec
+
+class Person(BaseModel):
+    name: str = Spec(fill_rate_func=lambda x: len(x) / 100)
+    age: int
+    email: str
+
+person = Person(name="John Doe", age=30, email="john@example.com")
+result = person.compute_fill_rate()
+
+print(result.fields.name.value)  # 0.08 (len("John Doe") = 8, 8/100 = 0.08)
+print(result.fields.age.value)   # 1.0 (default: present = 1.0)
+print(result.fields.email.value) # 1.0 (default: present = 1.0)
+```
+
+### Using @fill_rate_func Decorator
+
+You can also define fill rate functions using the `@fill_rate_func` decorator:
+
+```python
+from cobjectric import BaseModel, fill_rate_func
+import typing as t
+
+class Person(BaseModel):
+    name: str
+    email: str
+    age: int
+
+    @fill_rate_func("name", "email")
+    def fill_rate_name_email(x: t.Any) -> float:
+        return len(x) / 100 if x is not MissingValue else 0.0
+
+    @fill_rate_func("age")
+    def fill_rate_age(x: t.Any) -> float:
+        return 1.0 if x is not MissingValue else 0.0
+
+person = Person(name="John", email="john@example.com", age=30)
+result = person.compute_fill_rate()
+
+print(result.fields.name.value)  # 0.04 (len("John") = 4, 4/100 = 0.04)
+print(result.fields.email.value) # 0.16 (len("john@example.com") = 16, 16/100 = 0.16)
+print(result.fields.age.value)   # 1.0
+```
+
+### Pattern Matching
+
+The `@fill_rate_func` decorator supports glob patterns to match multiple fields:
+
+```python
+class Person(BaseModel):
+    name_first: str
+    name_last: str
+    age: int
+
+    @fill_rate_func("name_*")
+    def fill_rate_name_fields(x: t.Any) -> float:
+        return len(x) / 100 if x is not MissingValue else 0.0
+
+person = Person(name_first="John", name_last="Doe", age=30)
+result = person.compute_fill_rate()
+
+print(result.fields.name_first.value)  # 0.04
+print(result.fields.name_last.value)   # 0.03
+print(result.fields.age.value)        # 1.0
+```
+
+### Default Fill Rate Function
+
+If no `fill_rate_func` is specified, the default behavior is:
+- Returns `0.0` if the field value is `MissingValue`
+- Returns `1.0` otherwise
+
+### Fill Rate Validation
+
+Fill rate functions must return a float (or int convertible to float) between 0.0 and 1.0. If a function returns an invalid value, `InvalidFillRateValueError` is raised:
+
+```python
+from cobjectric import InvalidFillRateValueError
+
+class Person(BaseModel):
+    name: str = Spec(fill_rate_func=lambda x: 1.5)  # Invalid: > 1.0
+
+person = Person(name="John")
+try:
+    result = person.compute_fill_rate()
+except InvalidFillRateValueError as e:
+    print(f"Error: {e}")
+```
+
+### Duplicate Fill Rate Functions
+
+A field can only have one `fill_rate_func`. If multiple functions are defined (via `Spec()` and `@fill_rate_func`, or multiple decorators), `DuplicateFillRateFuncError` is raised:
+
+```python
+from cobjectric import DuplicateFillRateFuncError
+
+class Person(BaseModel):
+    name: str = Spec(fill_rate_func=lambda x: 0.5)
+
+    @fill_rate_func("name")
+    def fill_rate_name(x: t.Any) -> float:
+        return 0.6
+
+person = Person(name="John")
+try:
+    result = person.compute_fill_rate()
+except DuplicateFillRateFuncError as e:
+    print(f"Error: {e}")
+```
+
+### Fill Rate on Normalized Values
+
+Fill rate functions are applied to the **normalized value** (after normalizers have been applied):
+
+```python
+class Person(BaseModel):
+    name: str = Spec(
+        normalizer=lambda x: x.lower(),
+        fill_rate_func=lambda x: len(x) / 100,
+    )
+
+person = Person(name="JOHN DOE")
+result = person.compute_fill_rate()
+
+# Normalized value is "john doe" (len=8), not "JOHN DOE" (len=8)
+print(result.fields.name.value)  # 0.08
+```
+
+### Computing Fill Rate
+
+To compute fill rate for all fields in a model, call the `compute_fill_rate()` method:
+
+```python
+class Person(BaseModel):
+    name: str
+    age: int
+    email: str
+
+person = Person(name="John Doe", age=30)
+result = person.compute_fill_rate()
+
+print(result.fields.name.value)  # 1.0
+print(result.fields.age.value)   # 1.0
+print(result.fields.email.value) # 0.0 (missing)
+```
+
+### FillRateModelResult
+
+The `compute_fill_rate()` method returns a `FillRateModelResult` object that provides:
+
+- **Field access**: `result.fields.name` returns a `FillRateFieldResult` with the fill rate value and weight
+- **Statistical methods**: `mean()` (weighted), `max()`, `min()`, `std()`, `var()`, `quantile(q)`
+
+```python
+class Person(BaseModel):
+    name: str = Spec(fill_rate_func=lambda x: 0.3)
+    age: int = Spec(fill_rate_func=lambda x: 0.8)
+    email: str = Spec(fill_rate_func=lambda x: 0.5)
+
+person = Person(name="John", age=30, email="john@example.com")
+result = person.compute_fill_rate()
+
+print(result.mean())      # 0.533... (weighted average of 0.3, 0.8, 0.5)
+print(result.max())       # 0.8
+print(result.min())       # 0.3
+print(result.std())       # Standard deviation
+print(result.var())       # Variance
+print(result.quantile(0.25))  # 25th percentile
+print(result.quantile(0.50))  # 50th percentile (median)
+print(result.quantile(0.75))  # 75th percentile
+```
+
+**Note**: The `mean()` method calculates a **weighted mean** if weights are specified (see [Weighted Mean](#weighted-mean) section below). By default, all fields have weight `1.0`, so the mean is equivalent to a simple average.
+
+### Weighted Mean
+
+By default, all fields have a weight of `1.0`, which means the mean is calculated as a simple average. However, you can assign different weights to fields to calculate a **weighted mean**. This is useful when some fields are more important than others in your data quality assessment.
+
+#### Using Weight in Spec()
+
+You can set a weight directly in `Spec()`:
+
+```python
+class Person(BaseModel):
+    name: str = Spec(fill_rate_func=lambda x: 0.5, weight=2.0)
+    age: int = Spec(fill_rate_func=lambda x: 1.0, weight=1.0)
+
+person = Person(name="John", age=30)
+result = person.compute_fill_rate()
+
+# Weighted mean: (0.5 * 2.0 + 1.0 * 1.0) / (2.0 + 1.0) = 2.0 / 3.0 = 0.666...
+print(result.mean())  # 0.666...
+```
+
+#### Using Weight in Decorator
+
+You can also set a weight in the `@fill_rate_func` decorator:
+
+```python
+class Person(BaseModel):
+    name: str
+    age: int
+
+    @fill_rate_func("name", weight=2.0)
+    def fill_rate_name(x: t.Any) -> float:
+        return 0.5 if x is not MissingValue else 0.0
+
+    @fill_rate_func("age", weight=1.0)
+    def fill_rate_age(x: t.Any) -> float:
+        return 1.0 if x is not MissingValue else 0.0
+
+person = Person(name="John", age=30)
+result = person.compute_fill_rate()
+
+print(result.fields.name.weight)  # 2.0
+print(result.fields.age.weight)   # 1.0
+print(result.mean())              # 0.666... (weighted mean)
+```
+
+#### Decorator Weight Overrides Spec Weight
+
+If both `Spec(weight=...)` and `@fill_rate_func(..., weight=...)` are defined for the same field, the decorator weight takes precedence:
+
+```python
+class Person(BaseModel):
+    name: str = Spec(weight=1.0)
+
+    @fill_rate_func("name", weight=2.0)
+    def fill_rate_name(x: t.Any) -> float:
+        return 1.0 if x is not MissingValue else 0.0
+
+person = Person(name="John")
+result = person.compute_fill_rate()
+
+# Decorator weight (2.0) overrides Spec weight (1.0)
+print(result.fields.name.weight)  # 2.0
+```
+
+#### Weight Validation
+
+Weight must be `>= 0.0`. Negative weights will raise `InvalidWeightError`:
+
+```python
+from cobjectric import InvalidWeightError
+
+# This will raise InvalidWeightError
+try:
+    Spec(weight=-1.0)
+except InvalidWeightError as e:
+    print(f"Error: {e}")
+
+# This will also raise InvalidWeightError
+try:
+    @fill_rate_func("name", weight=-1.0)
+    def fill_rate_name(x: t.Any) -> float:
+        return 1.0
+except InvalidWeightError as e:
+    print(f"Error: {e}")
+```
+
+#### Weighted Mean Formula
+
+The weighted mean is calculated as:
+
+```
+weighted_mean = sum(value * weight) / sum(weight)
+```
+
+This means:
+- You don't need weights to sum to 1.0
+- Fields with higher weights have more influence on the mean
+- Fields with weight `0.0` don't contribute to the mean (but are still included in max/min)
+- If all weights sum to 0.0, the mean returns `0.0`
+
+#### Weighted Mean with Nested Models
+
+Weights work recursively with nested models:
+
+```python
+class Address(BaseModel):
+    street: str = Spec(fill_rate_func=lambda x: 0.5, weight=2.0)
+    city: str = Spec(fill_rate_func=lambda x: 1.0, weight=1.0)
+
+class Person(BaseModel):
+    name: str = Spec(fill_rate_func=lambda x: 0.8, weight=1.0)
+    address: Address
+
+person = Person.from_dict({
+    "name": "John",
+    "address": {"street": "123 Main St", "city": "Anytown"},
+})
+result = person.compute_fill_rate()
+
+# Weighted mean across all fields (including nested):
+# (0.8 * 1.0 + 0.5 * 2.0 + 1.0 * 1.0) / (1.0 + 2.0 + 1.0) = 2.8 / 4.0 = 0.7
+print(result.mean())  # 0.7
+```
+
+#### Max and Min with Weights
+
+The `max()` and `min()` methods are **not affected by weights** - they simply return the maximum and minimum fill rate values:
+
+```python
+class Person(BaseModel):
+    name: str = Spec(fill_rate_func=lambda x: 0.3, weight=2.0)
+    age: int = Spec(fill_rate_func=lambda x: 0.8, weight=0.5)
+
+person = Person(name="John", age=30)
+result = person.compute_fill_rate()
+
+print(result.max())  # 0.8 (not affected by weights)
+print(result.min())  # 0.3 (not affected by weights)
+print(result.mean())  # 0.466... (weighted mean)
+```
+
+### Fill Rate with Nested Models
+
+Fill rate computation works recursively with nested models:
+
+```python
+class Address(BaseModel):
+    street: str
+    city: str
+
+class Person(BaseModel):
+    name: str
+    address: Address
+
+person = Person.from_dict({
+    "name": "John Doe",
+    "address": {
+        "street": "123 Main St",
+        "city": "Anytown",
+    },
+})
+result = person.compute_fill_rate()
+
+# Access fill rate for top-level field
+print(result.fields.name.value)  # 1.0
+
+# Access fill rate for nested model (returns FillRateModelResult)
+nested_result = result.fields.address
+print(nested_result.fields.street.value)  # 1.0
+print(nested_result.fields.city.value)   # 1.0
+
+# Statistical methods aggregate across all fields (including nested)
+print(result.mean())  # 1.0 (all fields are present)
+```
+
+### Missing Nested Models
+
+If a nested model is missing (has `MissingValue`), all its fields are considered to have a fill rate of `0.0`:
+
+```python
+class Address(BaseModel):
+    street: str
+    city: str
+
+class Person(BaseModel):
+    name: str
+    address: Address
+
+person = Person(name="John Doe")  # address is missing
+result = person.compute_fill_rate()
+
+print(result.fields.name.value)  # 1.0
+nested_result = result.fields.address
+print(nested_result.fields.street.value)  # 0.0
+print(nested_result.fields.city.value)    # 0.0
+```
+
 ## FieldCollection
 
 `FieldCollection` is a collection of `Field` instances or `BaseModel` instances (for nested models) that provides convenient access to all fields in a model.
