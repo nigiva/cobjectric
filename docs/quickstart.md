@@ -66,6 +66,22 @@ person = Person(name="John", age="invalid")
 print(person.fields.age.value is MissingValue)  # True
 ```
 
+### Optional Fields
+
+You can define optional fields using `| None`:
+
+```python
+class Person(BaseModel):
+    name: str
+    email: str | None
+
+person1 = Person(name="John", email="john@example.com")
+print(person1.fields.email.value)  # "john@example.com"
+
+person2 = Person(name="John", email=None)
+print(person2.fields.email.value)  # None
+```
+
 ### Readonly Access
 
 Model instances are immutable after creation. Attempting to modify a field will raise an error:

@@ -189,12 +189,44 @@ print(person.fields.skills.value)  # ["Python", "JavaScript", "Rust"]
 print(person.fields.experiences.value[0].fields.title.value)  # "Software Engineer"
 ```
 
+### Optional Fields and Union Types
+
+You can define optional fields and union types:
+
+```python
+from cobjectric import BaseModel
+
+class Person(BaseModel):
+    name: str
+    email: str | None  # Optional field
+    id: str | int      # Union type
+    scores: dict[str, int]  # Typed dict
+
+# Create from dictionary
+person = Person.from_dict({
+    "name": "John Doe",
+    "email": "john.doe@example.com",  # or None
+    "id": 123,  # or "abc123"
+    "scores": {"math": 90, "english": 85},
+})
+
+# Access fields
+print(person.fields.email.value)  # "john.doe@example.com" or None
+print(person.fields.id.value)   # 123
+print(person.fields.scores.value)  # {"math": 90, "english": 85}
+```
+
 ### Features
 
 - **Typed Fields**: Define fields with type annotations
+- **Optional Fields**: Support for optional fields using `str | None` or `t.Optional[str]`
+- **Union Types**: Support for union types like `str | int` or `t.Union[str, int]`
+- **Typed Dicts**: Support for typed dictionaries with `dict[str, int]` syntax
+  - **Partial Filtering**: Invalid entries are automatically filtered out, valid entries are kept
+  - **Recursive Validation**: Deep validation for nested types like `dict[str, dict[str, int]]`
 - **List Fields**: Support for list types with single element types (e.g., `list[str]`, `list[MyModel]`)
   - **Partial Filtering**: Invalid elements are automatically filtered out, valid elements are kept
-  - **JSON-Compatible Types Only**: Only `str`, `int`, `float`, `bool`, `list[T]`, and `BaseModel` subclasses are supported
+  - **Recursive Validation**: Deep validation for nested types like `list[dict[str, int]]`
 - **Nested Models**: Support for nested model structures
 - **Type Validation**: Fields with invalid types are marked as missing or filtered out
 - **Readonly Models**: Model instances are immutable after creation
