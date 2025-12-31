@@ -1,13 +1,10 @@
 # Cobjectric
 
-> [!WARNING] > **Status**: 🚧 Work in Progress - This project is in early development
-
 **Complex Object Metric** - A Python library for computing metrics on complex objects (JSON, dictionaries, lists, etc.).
 
 [![CI](https://github.com/nigiva/cobjectric/actions/workflows/ci.yml/badge.svg)](https://github.com/nigiva/cobjectric/actions/workflows/ci.yml)
 [![codecov](https://codecov.io/github/nigiva/cobjectric/graph/badge.svg?token=8W3KJU8JG1)](https://codecov.io/github/nigiva/cobjectric)
 [![PyPI version](https://img.shields.io/pypi/v/cobjectric.svg)](https://pypi.org/project/cobjectric/)
-[![PyPI downloads](https://img.shields.io/pypi/dm/cobjectric.svg)](https://pypi.org/project/cobjectric/)
 [![Python Version](https://img.shields.io/pypi/pyversions/cobjectric.svg)](https://pypi.org/project/cobjectric/)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 [![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
@@ -68,14 +65,54 @@ uv run inv --help precommit
 
 ## 📚 Usage
 
-**TODO**: Add usage examples and API documentation
+### Quick Example
+
+Cobjectric allows you to define typed models and compute **fill rate** metrics to measure data completeness:
 
 ```python
-# Example usage will go here
-from cobjectric import ...
+from cobjectric import BaseModel, Spec
 
-# TODO: Add code examples
+class Person(BaseModel):
+    name: str = Spec(fill_rate_func=lambda x: len(x) / 100)
+    age: int
+    email: str
+
+# Create from dictionary
+person = Person.from_dict({
+    "name": "John Doe",
+    "age": 30,
+    "email": "john.doe@example.com",
+})
+
+# Compute fill rate (scoring)
+result = person.compute_fill_rate()
+
+print(result.fields.name.value)   # 0.08 (len("John Doe") = 8, 8/100)
+print(result.fields.age.value)    # 1.0 (present)
+print(result.fields.email.value)  # 1.0 (present)
+print(result.mean())              # 0.693... (average fill rate)
 ```
+
+Fill rate measures how "complete" each field is (0.0 = missing, 1.0 = present). You can define custom fill rate functions or use the default (0.0 for missing, 1.0 for present).
+
+See the [documentation](docs/base_model.md) for more details on nested models, list fields, normalizers, and advanced features.
+
+### Features
+
+- **Fill Rate Scoring**: Compute completeness metrics (fill rate) for all fields with statistical aggregation
+- **Typed Models**: Define models with type annotations and automatic validation
+- **Nested Models**: Support for nested model structures with recursive fill rate computation
+- **Field Normalizers**: Transform field values before validation
+- **Flexible Types**: Support for optional fields, union types, typed dicts, and lists
+
+For complete feature list and details, see the [documentation](docs/base_model.md).
+
+### Documentation
+
+For more information, see the [documentation](docs/index.md):
+
+- [Quick Start](docs/quickstart.md) - Get started in 5 minutes
+- [BaseModel and Fields](docs/base_model.md) - Detailed guide and API reference
 
 ## 📝 License
 

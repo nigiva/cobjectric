@@ -30,6 +30,13 @@ repos:
         args: [--fix, --config=./ruff.toml]
         stages: [pre-push]
 
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v6.0.0
+    hooks:
+      - id: check-added-large-files
+        args: ["--maxkb=500"]
+        stages: [pre-commit]
+
   - repo: local
     hooks:
       - id: mypy
@@ -47,4 +54,10 @@ repos:
         language: system
         pass_filenames: false
         always_run: true
+        stages: [pre-push]
+
+      - id: git-lfs
+        name: git-lfs
+        entry: git lfs pre-push
+        language: system
         stages: [pre-push]

@@ -1,0 +1,140 @@
+import typing as t
+
+
+class CobjectricError(Exception):
+    """Base exception for all cobjectric errors."""
+
+
+class UnsupportedListTypeError(CobjectricError):
+    """
+    Exception raised when a list field has an unsupported type.
+
+    This exception is raised when a list field contains a Union type,
+    which is not supported. Only single types are allowed in lists.
+    """
+
+    def __init__(self, unsupported_type: type) -> None:
+        """
+        Initialize UnsupportedListTypeError.
+
+        Args:
+            unsupported_type: The unsupported type that was detected.
+        """
+        self.unsupported_type = unsupported_type
+        type_name = getattr(unsupported_type, "__name__", str(unsupported_type))
+        super().__init__(
+            f"Unsupported list type: list[{type_name}]. "
+            "List fields must contain a single type (e.g., list[str], list[int], "
+            "list[MyModel]). Union types like list[str | int] are not supported."
+        )
+
+
+class MissingListTypeArgError(CobjectricError):
+    """
+    Exception raised when a list type is used without type arguments.
+
+    This exception is raised when using bare 'list' or 't.List' without
+    specifying the element type.
+    """
+
+    def __init__(self) -> None:
+        """Initialize MissingListTypeArgError."""
+        super().__init__(
+            "List type must specify an element type. "
+            "Use list[str], list[int], list[MyModel], etc. instead of bare 'list'."
+        )
+
+
+class UnsupportedTypeError(CobjectricError):
+    """
+    Exception raised when a field type is not supported.
+
+    This exception is raised when a field type is not JSON-compatible.
+    Only str, int, float, bool, list[T], or BaseModel subclasses are allowed.
+    """
+
+    def __init__(self, unsupported_type: type) -> None:
+        """
+        Initialize UnsupportedTypeError.
+
+        Args:
+            unsupported_type: The unsupported type that was detected.
+        """
+        self.unsupported_type = unsupported_type
+        type_name = getattr(unsupported_type, "__name__", str(unsupported_type))
+        super().__init__(
+            f"Unsupported type: {type_name}. "
+            "Only JSON-compatible types are allowed: str, int, float, bool, "
+            "list[T], or BaseModel subclasses."
+        )
+
+
+class DuplicateFillRateFuncError(CobjectricError):
+    """
+    Exception raised when multiple fill_rate_func are defined for the same field.
+
+    This exception is raised when a field has both a Spec(fill_rate_func=...)
+    and a @fill_rate_func decorator, or multiple @fill_rate_func decorators.
+    """
+
+    def __init__(self, field_name: str) -> None:
+        """
+        Initialize DuplicateFillRateFuncError.
+
+        Args:
+            field_name: The name of the field with duplicate fill_rate_func.
+        """
+        self.field_name = field_name
+        super().__init__(
+            f"Multiple fill_rate_func defined for field '{field_name}'. "
+            "A field can only have one fill_rate_func (either from Spec() or "
+            "@fill_rate_func decorator, not both)."
+        )
+
+
+class InvalidFillRateValueError(CobjectricError):
+    """
+    Exception raised when fill_rate_func returns an invalid value.
+
+    This exception is raised when fill_rate_func returns a value that is not
+    a float (or int convertible to float) or is not in the range [0, 1].
+    """
+
+    def __init__(self, field_name: str, value: t.Any) -> None:
+        """
+        Initialize InvalidFillRateValueError.
+
+        Args:
+            field_name: The name of the field with invalid fill_rate value.
+            value: The invalid value that was returned.
+        """
+        self.field_name = field_name
+        self.value = value
+        value_type = type(value).__name__
+        super().__init__(
+            f"Invalid fill_rate value for field '{field_name}': {value!r} "
+            f"(type: {value_type}). Fill rate must be a float between 0.0 and 1.0."
+        )
+
+
+class InvalidWeightError(CobjectricError):
+    """
+    Exception raised when weight is invalid.
+
+    This exception is raised when weight is negative (< 0.0).
+    Weight must be >= 0.0.
+    """
+
+    def __init__(self, weight: float, source: str) -> None:
+        """
+        Initialize InvalidWeightError.
+
+        Args:
+            weight: The invalid weight value.
+            source: The source of the weight ("Spec" or "decorator").
+        """
+        self.weight = weight
+        self.source = source
+        super().__init__(
+            f"Invalid weight in {source}: {weight}. Weight must be >= 0.0."
+        )
