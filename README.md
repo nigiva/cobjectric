@@ -14,56 +14,11 @@
 
 Cobjectric is a library designed to help developers calculate metrics on complex objects such as JSON, dictionaries, and arrays. It was originally created for Machine Learning projects where comparing and evaluating generated JSON structures against ground truth data was a repetitive manual task.
 
-## 🚀 Getting Started
-
-### For Users
+## 📚 Usage
 
 ```bash
 pip install cobjectric
 ```
-
-### For Development
-
-**Prerequisites**
-
-- Python 3.13.9 or higher
-- [uv](https://github.com/astral-sh/uv) - Fast Python package installer
-
-1. Install dependencies with uv:
-
-```bash
-uv sync --dev
-```
-
-2. Install pre-commit hooks:
-
-```bash
-uv run pre-commit install --hook-type pre-push
-```
-
-## 🛠️ Development
-
-### Available Commands
-
-The project uses [invoke](https://www.pyinvoke.org/) for task management.
-
-To see all available commands:
-
-```bash
-uv run inv --list
-# or shorter:
-uv run inv -l
-```
-
-To get help on a specific command:
-
-```bash
-uv run inv --help <command>
-# Example:
-uv run inv --help precommit
-```
-
-## 📚 Usage
 
 ### Quick Example
 
@@ -113,6 +68,52 @@ For more information, see the [documentation](docs/index.md):
 
 - [Quick Start](docs/quickstart.md) - Get started in 5 minutes
 - [BaseModel and Fields](docs/base_model.md) - Detailed guide and API reference
+
+
+## 🛠️ Development
+
+### Getting Started
+
+**Prerequisites**
+
+- Python 3.13.9 or higher
+- [uv](https://github.com/astral-sh/uv) - Fast Python package installer
+
+1. Install dependencies with uv:
+
+```bash
+uv sync --dev
+```
+
+2. Install pre-commit hooks:
+
+```bash
+uv run pre-commit install --hook-type pre-push
+```
+
+### Available Commands
+
+The project uses [invoke](https://www.pyinvoke.org/) for task management.
+
+To see all available commands:
+
+```bash
+uv run inv --list
+# or shorter:
+uv run inv -l
+```
+
+To get help on a specific command:
+
+```bash
+uv run inv --help <command>
+# Example:
+uv run inv --help precommit
+```
+
+### Release Guide
+
+See the [RELEASE.md](RELEASE.md) file for the release guide.
 
 ## 📝 License
 
