@@ -342,11 +342,237 @@ person = Person(name="John Doe")
 print(person.fields.skills.value is MissingValue)  # True
 ```
 
+## Optional Fields
+
+You can define optional fields using the `| None` syntax or `t.Optional[T]`:
+
+```python
+from cobjectric import BaseModel
+import typing as t
+
+class Person(BaseModel):
+    name: str
+    email: str | None
+    phone: t.Optional[str]
+```
+
+### Optional Fields with Values
+
+```python
+person = Person(name="John Doe", email="john@example.com")
+print(person.fields.name.value)  # "John Doe"
+print(person.fields.email.value)  # "john@example.com"
+```
+
+### Optional Fields with None
+
+```python
+person = Person(name="John Doe", email=None)
+print(person.fields.email.value)  # None
+```
+
+### Missing Optional Fields
+
+If an optional field is not provided, it will have `MissingValue`:
+
+```python
+person = Person(name="John Doe")
+print(person.fields.email.value is MissingValue)  # True
+```
+
+## Union Types
+
+You can define fields that accept multiple types using union syntax:
+
+```python
+from cobjectric import BaseModel
+
+class Person(BaseModel):
+    name: str
+    id: str | int
+    status: bool | int
+```
+
+### Union Type Validation
+
+The first matching type in the union is used:
+
+```python
+person1 = Person(name="John", id="abc123")
+print(person1.fields.id.value)  # "abc123"
+
+person2 = Person(name="John", id=123)
+print(person2.fields.id.value)  # 123
+```
+
+### Union with None
+
+You can combine union types with `None`:
+
+```python
+class Person(BaseModel):
+    name: str
+    metadata: dict[str, int] | None
+    scores: list[int] | None
+
+person1 = Person(name="John", metadata={"age": 30})
+print(person1.fields.metadata.value)  # {"age": 30}
+
+person2 = Person(name="John", metadata=None)
+print(person2.fields.metadata.value)  # None
+```
+
+### Union with Complex Types
+
+Unions work with any supported types:
+
+```python
+class Person(BaseModel):
+    name: str
+    data: list[int] | dict[str, int]
+
+person1 = Person(name="John", data=[1, 2, 3])
+print(person1.fields.data.value)  # [1, 2, 3]
+
+person2 = Person(name="John", data={"a": 1, "b": 2})
+print(person2.fields.data.value)  # {"a": 1, "b": 2}
+```
+
+## Typed Dict Fields
+
+You can define fields with typed dictionaries using `dict[K, V]` syntax:
+
+```python
+from cobjectric import BaseModel
+
+class Person(BaseModel):
+    name: str
+    scores: dict[str, int]
+    metadata: dict[str, str]
+```
+
+### Typed Dict Validation
+
+Typed dicts validate both keys and values:
+
+```python
+person = Person(
+    name="John",
+    scores={"math": 90, "english": 85, "science": 95}
+)
+print(person.fields.scores.value)  # {"math": 90, "english": 85, "science": 95}
+```
+
+### Typed Dict Partial Filtering
+
+Invalid entries are automatically filtered out:
+
+```python
+person = Person(
+    name="John",
+    scores={"math": 90, "english": "invalid", "science": 95}
+)
+print(person.fields.scores.value)  # {"math": 90, "science": 95}
+```
+
+If all entries are invalid, the field will have `MissingValue`:
+
+```python
+person = Person(
+    name="John",
+    scores={"math": "invalid", "english": "bad"}
+)
+print(person.fields.scores.value is MissingValue)  # True
+```
+
+### Empty Typed Dict
+
+Empty dictionaries are valid:
+
+```python
+person = Person(name="John", scores={})
+print(person.fields.scores.value)  # {}
+```
+
+### Nested Typed Dicts
+
+Typed dicts can be nested recursively:
+
+```python
+class Person(BaseModel):
+    name: str
+    nested_scores: dict[str, dict[str, int]]
+
+person = Person(
+    name="John",
+    nested_scores={
+        "semester1": {"math": 90, "english": 85},
+        "semester2": {"math": 95, "english": 80},
+    }
+)
+print(person.fields.nested_scores.value)
+# {"semester1": {"math": 90, "english": 85}, "semester2": {"math": 95, "english": 80}}
+```
+
+### Typed Dict with List Values
+
+Typed dicts can have list values:
+
+```python
+class Person(BaseModel):
+    name: str
+    scores_by_subject: dict[str, list[int]]
+
+person = Person(
+    name="John",
+    scores_by_subject={
+        "math": [90, 85, 95],
+        "english": [80, 85],
+    }
+)
+print(person.fields.scores_by_subject.value)
+# {"math": [90, 85, 95], "english": [80, 85]}
+```
+
+### Typed Dict with Union Values
+
+Typed dicts can have union types as values:
+
+```python
+class Person(BaseModel):
+    name: str
+    scores: dict[str, int | None]
+
+person = Person(
+    name="John",
+    scores={"math": 90, "english": None, "science": 85}
+)
+print(person.fields.scores.value)  # {"math": 90, "english": None, "science": 85}
+```
+
+### Bare Dict Type
+
+You can also use bare `dict` type (without type arguments) for untyped dictionaries:
+
+```python
+class Person(BaseModel):
+    name: str
+    metadata: dict
+
+person = Person(name="John", metadata={"key": "value", "num": 42})
+print(person.fields.metadata.value)  # {"key": "value", "num": 42}
+```
+
+**Note**: Bare `dict` accepts any dictionary without validation. For type safety, prefer `dict[K, V]`.
+
 ### Supported Types
 
 Only **JSON-compatible types** are supported:
 - Primitive types: `str`, `int`, `float`, `bool`
 - Lists: `list[T]` where `T` is a supported type
+- Dictionaries: `dict` or `dict[K, V]` where `K` and `V` are supported types
+- Union types: `T | U` or `t.Union[T, U]` where `T` and `U` are supported types
+- Optional types: `T | None` or `t.Optional[T]` where `T` is a supported type
 - Nested models: `BaseModel` subclasses
 
 ### Unsupported Types
@@ -396,7 +622,6 @@ class Person(BaseModel):
     data: object     # Not supported
     tags: set[str]   # Not supported
     pair: tuple[str, int]  # Not supported
-    data: dict       # Not supported (use dict[str, T] instead)
 ```
 
 ## Fields
