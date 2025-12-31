@@ -245,10 +245,48 @@ print(person.fields.email.spec.metadata)
 # {}
 ```
 
+### Field Normalizers
+
+You can define normalizers to transform field values before type validation:
+
+```python
+from cobjectric import BaseModel, Spec, field_normalizer
+import typing as t
+
+class Person(BaseModel):
+    name: str = Spec(normalizer=lambda x: x.lower())
+    email: str
+
+    @field_normalizer("email")
+    def normalize_email(x: t.Any) -> str:
+        return str(x).strip().lower()
+
+person = Person(name="JOHN DOE", email="  JOHN@EXAMPLE.COM  ")
+print(person.fields.name.value)   # "john doe"
+print(person.fields.email.value)  # "john@example.com"
+```
+
+You can also use glob patterns to match multiple fields:
+
+```python
+class Person(BaseModel):
+    name_first: str
+    name_last: str
+
+    @field_normalizer("name_*")
+    def normalize_names(x: t.Any) -> str:
+        return str(x).strip().title()
+
+person = Person(name_first="  john  ", name_last="  DOE  ")
+print(person.fields.name_first.value)  # "John"
+print(person.fields.name_last.value)   # "Doe"
+```
+
 ### Features
 
 - **Typed Fields**: Define fields with type annotations
 - **Field Specifications**: Add metadata to fields using `Spec()` function
+- **Field Normalizers**: Transform field values before type validation using `Spec(normalizer=...)` or `@field_normalizer` decorator
 - **Optional Fields**: Support for optional fields using `str | None` or `t.Optional[str]`
 - **Union Types**: Support for union types like `str | int` or `t.Union[str, int]`
 - **Typed Dicts**: Support for typed dictionaries with `dict[str, int]` syntax

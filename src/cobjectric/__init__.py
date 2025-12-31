@@ -8,6 +8,7 @@ from cobjectric.exceptions import (
     UnsupportedTypeError,
 )
 from cobjectric.field_spec import FieldSpec, Spec
+from cobjectric.normalizer import field_normalizer
 from cobjectric.sentinel import MissingValue
 
 __version__ = version("cobjectric")
@@ -21,14 +22,5 @@ __all__ = [
     "UnsupportedTypeError",
     "FieldSpec",
     "Spec",
+    "field_normalizer",
 ]
-
-
-def status() -> bool:
-    """
-    Check if the library is working
-
-    Returns:
-        bool: True if the library is working, False otherwise
-    """
-    return True

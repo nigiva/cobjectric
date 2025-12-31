@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import fnmatch
 import types
 import typing as t
 
@@ -357,6 +358,66 @@ class BaseModel:
 
         return MissingValue
 
+    @classmethod
+    def _collect_field_normalizers(
+        cls,
+    ) -> dict[str, list[t.Callable[..., t.Any]]]:
+        """
+        Collect all @field_normalizer decorated methods for each field.
+
+        Returns:
+            Dict mapping field_name to list of normalizer functions
+        """
+        normalizers: dict[str, list[t.Callable[..., t.Any]]] = {}
+        annotations = getattr(cls, "__annotations__", {})
+        field_names = [n for n in annotations if not n.startswith("_")]
+
+        # Use __dict__ to preserve declaration order
+        for attr_name, attr_value in cls.__dict__.items():
+            if attr_name.startswith("_"):
+                continue
+            if callable(attr_value) and hasattr(attr_value, "_field_normalizers"):
+                for info in attr_value._field_normalizers:
+                    for pattern in info.field_patterns:
+                        for field_name in field_names:
+                            if fnmatch.fnmatch(field_name, pattern):
+                                if field_name not in normalizers:
+                                    normalizers[field_name] = []
+                                normalizers[field_name].append(info.func)
+        return normalizers
+
+    @staticmethod
+    def _build_combined_normalizer(
+        spec_normalizer: t.Callable[..., t.Any] | None,
+        decorator_normalizers: list[t.Callable[..., t.Any]],
+    ) -> t.Callable[..., t.Any] | None:
+        """
+        Build a single normalizer from Spec + decorator normalizers.
+
+        Args:
+            spec_normalizer: Normalizer from Spec() if any.
+            decorator_normalizers: List of normalizers from
+                @field_normalizer decorators.
+
+        Returns:
+            Combined normalizer function or None if no normalizers.
+        """
+        all_normalizers: list[t.Callable[..., t.Any]] = []
+        if spec_normalizer:
+            all_normalizers.append(spec_normalizer)
+        all_normalizers.extend(decorator_normalizers)
+
+        if not all_normalizers:
+            return None
+
+        def combined(value: t.Any) -> t.Any:
+            result = value
+            for norm_func in all_normalizers:
+                result = norm_func(result)
+            return result
+
+        return combined
+
     def __init__(self, **kwargs: t.Any) -> None:
         """
         Initialize a BaseModel instance.
@@ -368,6 +429,9 @@ class BaseModel:
         annotations = getattr(self.__class__, "__annotations__", {})
         fields: dict[str, Field | BaseModel] = {}
 
+        # Collect decorator normalizers once per class
+        field_normalizers = self._collect_field_normalizers()
+
         for field_name, field_type in annotations.items():
             if field_name.startswith("_"):
                 continue
@@ -376,15 +440,28 @@ class BaseModel:
 
             value = kwargs.get(field_name, MissingValue)
 
-            if value is not MissingValue:
-                value = self._validate_and_process_value(value, field_type)
-
             # Get FieldSpec from class attribute (if Spec() was used)
             class_default = getattr(self.__class__, field_name, None)
             if isinstance(class_default, FieldSpec):
                 spec = class_default
             else:
                 spec = FieldSpec()  # Default
+
+            # Apply normalizers before type validation
+            if value is not MissingValue:
+                combined_normalizer = self._build_combined_normalizer(
+                    spec.normalizer,
+                    field_normalizers.get(field_name, []),
+                )
+                if combined_normalizer:
+                    value = combined_normalizer(value)
+                    # Create new FieldSpec with combined normalizer
+                    spec = FieldSpec(
+                        metadata=spec.metadata, normalizer=combined_normalizer
+                    )
+
+                # Then validate type
+                value = self._validate_and_process_value(value, field_type)
 
             # Check if this is a nested model
             is_nested_model = self._is_base_model_type(field_type)
