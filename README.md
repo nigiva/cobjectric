@@ -130,6 +130,6 @@ If you use Cobjectric in your research or projects, please consider citing it:
   publisher = {GitHub},
   journal = {GitHub repository},
   howpublished = {\url{https://github.com/nigiva/cobjectric}},
-  version = {1.0.1}
+  version = {1.1.0}
 }
 ```
