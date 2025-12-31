@@ -633,7 +633,7 @@ A `Field` represents a single attribute in a model. It contains metadata about t
 - **name**: The name of the field (str)
 - **type**: The type annotation of the field (type)
 - **value**: The current value of the field (any type, or MissingValue)
-- **specs**: Field specifications (currently not implemented)
+- **spec**: The field specification (FieldSpec)
 
 ### Accessing Fields
 
@@ -645,7 +645,80 @@ name_field = user.fields.username
 print(name_field.name)   # "username"
 print(name_field.type)   # <class 'str'>
 print(name_field.value)  # "bob"
+print(name_field.spec)   # FieldSpec(metadata={})
 ```
+
+## Field Specifications (Spec)
+
+You can add metadata to fields using the `Spec()` function. This is useful for documentation, validation hints, or any other metadata you want to associate with a field.
+
+### Using Spec
+
+Define fields with specifications using the `Spec()` function:
+
+```python
+from cobjectric import BaseModel, Spec
+
+class Person(BaseModel):
+    name: str = Spec(metadata={"description": "The name of the person"})
+    age: int = Spec()
+    email: str
+    is_active: bool
+```
+
+### Accessing Field Specifications
+
+Access the specification through the field's `.spec` attribute:
+
+```python
+person = Person.from_dict({
+    "name": "John Doe",
+    "age": 30,
+    "email": "john.doe@example.com",
+    "is_active": True,
+})
+
+# Access spec with metadata
+print(person.fields.name.spec.metadata)
+# {"description": "The name of the person"}
+
+# Fields without Spec() have a default FieldSpec with empty metadata
+print(person.fields.email.spec.metadata)
+# {}
+```
+
+### Default FieldSpec
+
+Fields that don't explicitly use `Spec()` automatically get a default `FieldSpec` with empty metadata:
+
+```python
+class Person(BaseModel):
+    name: str  # No Spec() used
+
+person = Person.from_dict({"name": "John Doe"})
+assert person.fields.name.spec.metadata == {}  # Empty dict by default
+```
+
+### FieldSpec Attributes
+
+- **metadata**: A dictionary containing field metadata (dict[str, Any])
+
+### Spec Function
+
+The `Spec()` function creates a `FieldSpec` instance. It accepts an optional `metadata` parameter:
+
+```python
+# With metadata
+name: str = Spec(metadata={"description": "Name", "required": True})
+
+# Without metadata (empty dict)
+age: int = Spec()
+
+# None metadata is treated as empty dict
+email: str = Spec(metadata=None)  # Same as Spec()
+```
+
+**Note**: The function returns `Any` for type checking purposes, allowing it to be used in type annotations without causing type errors. This follows the same pattern as Pydantic's `Field()` function.
 
 ## FieldCollection
 

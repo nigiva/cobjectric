@@ -216,9 +216,39 @@ print(person.fields.id.value)   # 123
 print(person.fields.scores.value)  # {"math": 90, "english": 85}
 ```
 
+### Field Specifications (Spec)
+
+You can add metadata to fields using the `Spec()` function:
+
+```python
+from cobjectric import BaseModel, Spec
+
+class Person(BaseModel):
+    name: str = Spec(metadata={"description": "The name of the person"})
+    age: int = Spec()
+    email: str
+    is_active: bool
+
+person = Person.from_dict({
+    "name": "John Doe",
+    "age": 30,
+    "email": "john.doe@example.com",
+    "is_active": True,
+})
+
+# Access field specifications
+print(person.fields.name.spec.metadata)
+# {"description": "The name of the person"}
+
+# Fields without Spec() have default FieldSpec with empty metadata
+print(person.fields.email.spec.metadata)
+# {}
+```
+
 ### Features
 
 - **Typed Fields**: Define fields with type annotations
+- **Field Specifications**: Add metadata to fields using `Spec()` function
 - **Optional Fields**: Support for optional fields using `str | None` or `t.Optional[str]`
 - **Union Types**: Support for union types like `str | int` or `t.Union[str, int]`
 - **Typed Dicts**: Support for typed dictionaries with `dict[str, int]` syntax

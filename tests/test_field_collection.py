@@ -2,6 +2,7 @@ import pytest
 
 from cobjectric.field import Field
 from cobjectric.field_collection import FieldCollection
+from cobjectric.field_spec import FieldSpec
 
 
 def test_field_collection_creation() -> None:
@@ -11,7 +12,7 @@ def test_field_collection_creation() -> None:
             name="name",
             type=str,
             value="John",
-            specs=None,
+            spec=FieldSpec(),
         ),
     }
     collection = FieldCollection(fields)
@@ -25,13 +26,13 @@ def test_field_collection_access_by_attribute() -> None:
             name="name",
             type=str,
             value="John",
-            specs=None,
+            spec=FieldSpec(),
         ),
         "age": Field(
             name="age",
             type=int,
             value=30,
-            specs=None,
+            spec=FieldSpec(),
         ),
     }
     collection = FieldCollection(fields)
@@ -46,7 +47,7 @@ def test_field_collection_access_nonexistent_field() -> None:
             name="name",
             type=str,
             value="John",
-            specs=None,
+            spec=FieldSpec(),
         ),
     }
     collection = FieldCollection(fields)
@@ -61,13 +62,13 @@ def test_field_collection_iteration() -> None:
             name="name",
             type=str,
             value="John",
-            specs=None,
+            spec=FieldSpec(),
         ),
         "age": Field(
             name="age",
             type=int,
             value=30,
-            specs=None,
+            spec=FieldSpec(),
         ),
     }
     collection = FieldCollection(fields)
@@ -84,7 +85,7 @@ def test_field_collection_repr() -> None:
             name="name",
             type=str,
             value="John",
-            specs=None,
+            spec=FieldSpec(),
         ),
     }
     collection = FieldCollection(fields)

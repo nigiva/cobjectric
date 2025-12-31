@@ -10,6 +10,7 @@ from cobjectric.exceptions import (
 )
 from cobjectric.field import Field
 from cobjectric.field_collection import FieldCollection
+from cobjectric.field_spec import FieldSpec
 from cobjectric.sentinel import MissingValue
 
 
@@ -378,6 +379,13 @@ class BaseModel:
             if value is not MissingValue:
                 value = self._validate_and_process_value(value, field_type)
 
+            # Get FieldSpec from class attribute (if Spec() was used)
+            class_default = getattr(self.__class__, field_name, None)
+            if isinstance(class_default, FieldSpec):
+                spec = class_default
+            else:
+                spec = FieldSpec()  # Default
+
             # Check if this is a nested model
             is_nested_model = self._is_base_model_type(field_type)
 
@@ -389,14 +397,14 @@ class BaseModel:
                         name=field_name,
                         type=field_type,
                         value=value,
-                        specs=None,
+                        spec=spec,
                     )
             else:
                 fields[field_name] = Field(
                     name=field_name,
                     type=field_type,
                     value=value,
-                    specs=None,
+                    spec=spec,
                 )
 
         setattr(self, "_fields", fields)  # noqa: B010

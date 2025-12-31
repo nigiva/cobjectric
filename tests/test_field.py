@@ -1,4 +1,4 @@
-from cobjectric import MissingValue
+from cobjectric import FieldSpec, MissingValue
 from cobjectric.field import Field
 
 
@@ -8,12 +8,12 @@ def test_field_creation() -> None:
         name="test_field",
         type=str,
         value="test_value",
-        specs=None,
+        spec=FieldSpec(),
     )
     assert field.name == "test_field"
     assert field.type is str
     assert field.value == "test_value"
-    assert field.specs is None
+    assert isinstance(field.spec, FieldSpec)
 
 
 def test_field_with_missing_value() -> None:
@@ -22,7 +22,7 @@ def test_field_with_missing_value() -> None:
         name="test_field",
         type=str,
         value=MissingValue,
-        specs=None,
+        spec=FieldSpec(),
     )
     assert field.value is MissingValue
 
@@ -33,7 +33,7 @@ def test_field_repr() -> None:
         name="test_field",
         type=str,
         value="test_value",
-        specs=None,
+        spec=FieldSpec(),
     )
     repr_str = repr(field)
     assert "test_field" in repr_str
@@ -47,7 +47,7 @@ def test_field_repr_with_generic_type() -> None:
         name="tags",
         type=list[str],
         value=["tag1", "tag2"],
-        specs=None,
+        spec=FieldSpec(),
     )
     repr_str = repr(field)
     assert "tags" in repr_str
@@ -61,7 +61,7 @@ def test_field_repr_with_dict_type() -> None:
         name="metadata",
         type=dict[str, int],
         value={"key": 42},
-        specs=None,
+        spec=FieldSpec(),
     )
     repr_str = repr(field)
     assert "metadata" in repr_str
@@ -74,7 +74,7 @@ def test_field_repr_with_optional_type() -> None:
         name="optional_field",
         type=str | None,
         value=None,
-        specs=None,
+        spec=FieldSpec(),
     )
     repr_str = repr(field)
     assert "optional_field" in repr_str
@@ -91,9 +91,35 @@ def test_field_repr_with_type_without_name() -> None:
         name="test_field",
         type=TypeWithoutName(),  # Instance without __name__
         value="test_value",
-        specs=None,
+        spec=FieldSpec(),
     )
     repr_str = repr(field)
     assert "test_field" in repr_str
     assert "test_value" in repr_str
     # Should not raise AttributeError
+
+
+def test_field_spec_default_value() -> None:
+    """Test that Field has a default FieldSpec when spec is not provided."""
+    field = Field(
+        name="test_field",
+        type=str,
+        value="test_value",
+    )
+    assert isinstance(field.spec, FieldSpec)
+    assert field.spec.metadata == {}
+
+
+def test_field_spec_default_value_each_instance_has_own_spec() -> None:
+    """Test that each Field instance gets its own FieldSpec by default."""
+    field1 = Field(name="field1", type=str, value="value1")
+    field2 = Field(name="field2", type=int, value=42)
+
+    assert isinstance(field1.spec, FieldSpec)
+    assert isinstance(field2.spec, FieldSpec)
+    # Each instance should have its own FieldSpec
+    assert field1.spec is not field2.spec
+    # Modifying one should not affect the other
+    field1.spec.metadata["key"] = "value"
+    assert field1.spec.metadata == {"key": "value"}
+    assert field2.spec.metadata == {}
