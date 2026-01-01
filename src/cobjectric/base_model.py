@@ -9,6 +9,7 @@ from cobjectric.exceptions import (
     DuplicateFillRateFuncError,
     DuplicateSimilarityFuncError,
     InvalidFillRateValueError,
+    InvalidListCompareStrategyError,
     MissingListTypeArgError,
     UnsupportedListTypeError,
     UnsupportedTypeError,
@@ -28,6 +29,12 @@ from cobjectric.fill_rate import (
     SimilarityFuncInfo,
     not_missing_fill_rate,
     same_state_fill_rate_accuracy,
+)
+from cobjectric.list_compare import (
+    ListCompareStrategy,
+    align_levenshtein,
+    align_optimal_assignment,
+    align_pairwise,
 )
 from cobjectric.sentinel import MissingValue
 from cobjectric.similarities import exact_similarity
@@ -695,6 +702,8 @@ class BaseModel:
                 fill_rate_accuracy_func are defined for the same field.
             InvalidFillRateValueError: If a fill_rate_accuracy_func returns
                 an invalid value.
+            InvalidListCompareStrategyError: If list_compare_strategy is used on
+                a non-list field.
         """
         # Collect decorator fill_rate_accuracy_funcs once per class
         decorator_fill_rate_accuracy_funcs = self._collect_fill_rate_accuracy_funcs()
@@ -720,6 +729,15 @@ class BaseModel:
             else:
                 # Nested model - use default spec
                 spec = FieldSpec()
+
+            # Validate list_compare_strategy is only used on list[BaseModel]
+            if isinstance(field, Field):
+                if spec.list_compare_strategy != ListCompareStrategy.PAIRWISE:
+                    if not self._is_list_type(field.type):
+                        raise InvalidListCompareStrategyError(field_name)
+                    element_type = self._get_list_element_type(field.type)
+                    if not self._is_base_model_type(element_type):
+                        raise InvalidListCompareStrategyError(field_name)
 
             # Check for duplicates
             spec_func = spec.fill_rate_accuracy_func
@@ -789,12 +807,24 @@ class BaseModel:
                         else []
                     )
 
-                    # Compare item by item - only compare items that exist in both
+                    # Get alignment based on strategy
+                    strategy = spec.list_compare_strategy
+
+                    def compute_accuracy(
+                        got_item: BaseModel,
+                        expected_item: BaseModel,
+                    ) -> FillRateModelResult:
+                        return got_item.compute_fill_rate_accuracy(expected_item)
+
+                    alignment = self._get_list_alignment(
+                        got_list, expected_list, strategy, compute_accuracy
+                    )
+
+                    # Compare items based on alignment
                     items_results = []
-                    min_len = min(len(got_list), len(expected_list))
-                    for i in range(min_len):
-                        got_item = got_list[i]
-                        expected_item = expected_list[i]
+                    for got_idx, expected_idx in alignment:
+                        got_item = got_list[got_idx]
+                        expected_item = expected_list[expected_idx]
 
                         # Both present - recursively compute
                         if isinstance(got_item, BaseModel) and isinstance(
@@ -927,6 +957,34 @@ class BaseModel:
 
         return FillRateModelResult(_fields=result_fields)
 
+    def _get_list_alignment(
+        self,
+        got_list: list[BaseModel],
+        expected_list: list[BaseModel],
+        strategy: ListCompareStrategy,
+        compute_func: t.Callable[[BaseModel, BaseModel], FillRateModelResult],
+    ) -> list[tuple[int, int]]:
+        """
+        Get alignment between two lists based on strategy.
+
+        Args:
+            got_list: List of BaseModel instances from the model being evaluated.
+            expected_list: List of BaseModel instances from the expected model.
+            strategy: The alignment strategy to use.
+            compute_func: Function to compute similarity/accuracy between two BaseModel.
+
+        Returns:
+            List of tuples (got_index, expected_index) representing the alignment.
+        """
+        if strategy == ListCompareStrategy.PAIRWISE:
+            return align_pairwise(got_list, expected_list)
+        elif strategy == ListCompareStrategy.LEVENSHTEIN:
+            return align_levenshtein(got_list, expected_list, compute_func)
+        elif strategy == ListCompareStrategy.OPTIMAL_ASSIGNMENT:
+            return align_optimal_assignment(got_list, expected_list, compute_func)
+        else:
+            raise ValueError(f"Unknown strategy: {strategy}")
+
     def compute_similarity(self, expected: BaseModel) -> FillRateModelResult:
         """
         Compute similarity for all fields compared to expected model.
@@ -942,6 +1000,8 @@ class BaseModel:
             DuplicateSimilarityFuncError: If multiple similarity_func are defined
                 for the same field.
             InvalidFillRateValueError: If a similarity_func returns an invalid value.
+            InvalidListCompareStrategyError: If list_compare_strategy is used on
+                a non-list field.
         """
         # Collect decorator similarity_funcs once per class
         decorator_similarity_funcs = self._collect_similarity_funcs()
@@ -967,6 +1027,15 @@ class BaseModel:
             else:
                 # Nested model - use default spec
                 spec = FieldSpec()
+
+            # Validate list_compare_strategy is only used on list[BaseModel]
+            if isinstance(field, Field):
+                if spec.list_compare_strategy != ListCompareStrategy.PAIRWISE:
+                    if not self._is_list_type(field.type):
+                        raise InvalidListCompareStrategyError(field_name)
+                    element_type = self._get_list_element_type(field.type)
+                    if not self._is_base_model_type(element_type):
+                        raise InvalidListCompareStrategyError(field_name)
 
             # Check for duplicates
             spec_func = spec.similarity_func
@@ -1036,12 +1105,24 @@ class BaseModel:
                         else []
                     )
 
-                    # Compare item by item - only compare items that exist in both
+                    # Get alignment based on strategy
+                    strategy = spec.list_compare_strategy
+
+                    def compute_sim(
+                        got_item: BaseModel,
+                        expected_item: BaseModel,
+                    ) -> FillRateModelResult:
+                        return got_item.compute_similarity(expected_item)
+
+                    alignment = self._get_list_alignment(
+                        got_list, expected_list, strategy, compute_sim
+                    )
+
+                    # Compare items based on alignment
                     items_results = []
-                    min_len = min(len(got_list), len(expected_list))
-                    for i in range(min_len):
-                        got_item = got_list[i]
-                        expected_item = expected_list[i]
+                    for got_idx, expected_idx in alignment:
+                        got_item = got_list[got_idx]
+                        expected_item = expected_list[expected_idx]
 
                         # Both present - recursively compute
                         if isinstance(got_item, BaseModel) and isinstance(

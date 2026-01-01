@@ -229,3 +229,25 @@ class InvalidAggregatedFieldError(CobjectricError):
             f"Invalid aggregated field '{field_name}'{type_str}. "
             f"Available fields: [{fields_str}]"
         )
+
+
+class InvalidListCompareStrategyError(CobjectricError):
+    """
+    Exception raised when list_compare_strategy is used on a non-list field.
+
+    This exception is raised when trying to use list_compare_strategy on a field
+    that is not a list[BaseModel] type.
+    """
+
+    def __init__(self, field_name: str) -> None:
+        """
+        Initialize InvalidListCompareStrategyError.
+
+        Args:
+            field_name: The name of the field with invalid list_compare_strategy.
+        """
+        self.field_name = field_name
+        super().__init__(
+            f"list_compare_strategy can only be used on list[BaseModel] fields. "
+            f"Field '{field_name}' is not a list[BaseModel] type."
+        )

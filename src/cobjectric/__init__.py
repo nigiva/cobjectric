@@ -8,6 +8,7 @@ from cobjectric.exceptions import (
     DuplicateSimilarityFuncError,
     InvalidAggregatedFieldError,
     InvalidFillRateValueError,
+    InvalidListCompareStrategyError,
     InvalidWeightError,
     MissingListTypeArgError,
     UnsupportedListTypeError,
@@ -31,6 +32,7 @@ from cobjectric.fill_rate import (
     same_state_fill_rate_accuracy,
     similarity_func,
 )
+from cobjectric.list_compare import ListCompareStrategy
 from cobjectric.normalizer import field_normalizer
 from cobjectric.sentinel import MissingValue
 from cobjectric.similarities import (
@@ -54,6 +56,7 @@ __all__ = [
     "InvalidFillRateValueError",
     "InvalidWeightError",
     "InvalidAggregatedFieldError",
+    "InvalidListCompareStrategyError",
     "FieldSpec",
     "Spec",
     "field_normalizer",
@@ -70,6 +73,7 @@ __all__ = [
     "FillRateAggregatedModelResult",
     "FillRateAggregatedFieldCollection",
     "FillRateNestedListAggregatedResult",
+    "ListCompareStrategy",
     "exact_similarity",
     "fuzzy_similarity_factory",
     "numeric_similarity_factory",

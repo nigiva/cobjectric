@@ -9,6 +9,7 @@ from cobjectric.fill_rate import (
     not_missing_fill_rate,
     same_state_fill_rate_accuracy,
 )
+from cobjectric.list_compare import ListCompareStrategy
 from cobjectric.similarities import exact_similarity
 
 Normalizer = t.Callable[[t.Any], t.Any]
@@ -30,6 +31,9 @@ class FieldSpec:
     fill_rate_accuracy_weight: float = 1.0
     similarity_func: SimilarityFunc = field(default=exact_similarity)
     similarity_weight: float = 1.0
+    list_compare_strategy: ListCompareStrategy = field(
+        default=ListCompareStrategy.PAIRWISE
+    )
 
 
 # We use a function instead of directly using FieldSpec because:
@@ -44,6 +48,7 @@ def Spec(  # noqa: N802
     fill_rate_accuracy_weight: float = 1.0,
     similarity_func: SimilarityFunc | None = None,
     similarity_weight: float = 1.0,
+    list_compare_strategy: ListCompareStrategy | str | None = None,
 ) -> t.Any:
     """
     Create a FieldSpec for a field.
@@ -61,12 +66,17 @@ def Spec(  # noqa: N802
         similarity_func (SimilarityFunc | None): Optional similarity function.
         similarity_weight (float): Weight for similarity computation
             (default: 1.0, must be >= 0.0).
+        list_compare_strategy (ListCompareStrategy | str | None): Strategy for
+            comparing list[BaseModel] items. Valid values: "pairwise", "levenshtein",
+            "optimal_assignment", or ListCompareStrategy enum values.
+            Only valid for list[BaseModel] fields (default: PAIRWISE).
 
     Returns:
         Any: A FieldSpec instance (typed as Any for type checker compatibility).
 
     Raises:
         InvalidWeightError: If weight is negative (< 0.0).
+        ValueError: If list_compare_strategy is an invalid string value.
     """
     if fill_rate_weight < 0.0:
         raise InvalidWeightError(fill_rate_weight, "Spec", "fill_rate")
@@ -76,6 +86,21 @@ def Spec(  # noqa: N802
         )
     if similarity_weight < 0.0:
         raise InvalidWeightError(similarity_weight, "Spec", "similarity")
+
+    # Convert string to enum if needed
+    strategy: ListCompareStrategy = ListCompareStrategy.PAIRWISE
+    if list_compare_strategy is not None:
+        if isinstance(list_compare_strategy, str):
+            try:
+                strategy = ListCompareStrategy(list_compare_strategy)
+            except ValueError as e:
+                raise ValueError(
+                    f"Invalid list_compare_strategy: {list_compare_strategy}. "
+                    f"Valid values: {[s.value for s in ListCompareStrategy]}"
+                ) from e
+        else:
+            strategy = list_compare_strategy
+
     return FieldSpec(
         metadata=metadata if metadata is not None else {},
         normalizer=normalizer,
@@ -93,4 +118,5 @@ def Spec(  # noqa: N802
             similarity_func if similarity_func is not None else exact_similarity
         ),
         similarity_weight=similarity_weight,
+        list_compare_strategy=strategy,
     )
