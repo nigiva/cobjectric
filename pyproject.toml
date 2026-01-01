@@ -19,6 +19,7 @@ classifiers = [
 keywords = ["metrics", "json", "comparison", "machine-learning", "evaluation"]
 dependencies = [
     "rapidfuzz>=3.14.3",
+    "scipy>=1.16.3",
 ]
 
 [project.urls]
@@ -79,7 +80,7 @@ testpaths = ["tests"]
 python_files = ["test_*.py"]
 python_classes = ["Test*"]
 python_functions = ["test_*"]
-addopts = "--cov=src/cobjectric --cov-report=html --cov-report=term-missing"
+addopts = "--cov=src/cobjectric --cov-report=html --cov-report=term-missing --cov-report=xml"
 
 [tool.coverage.run]
 relative_files = true

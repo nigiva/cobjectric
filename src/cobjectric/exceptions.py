@@ -125,16 +125,129 @@ class InvalidWeightError(CobjectricError):
     Weight must be >= 0.0.
     """
 
-    def __init__(self, weight: float, source: str) -> None:
+    def __init__(
+        self, weight: float, source: str, weight_type: str = "fill_rate"
+    ) -> None:
         """
         Initialize InvalidWeightError.
 
         Args:
             weight: The invalid weight value.
             source: The source of the weight ("Spec" or "decorator").
+            weight_type: The type of weight ("fill_rate" or "fill_rate_accuracy").
         """
         self.weight = weight
         self.source = source
+        self.weight_type = weight_type
+        if weight_type == "fill_rate":
+            super().__init__(
+                f"Invalid weight in {source}: {weight}. Weight must be >= 0.0."
+            )
+        else:
+            super().__init__(
+                f"Invalid {weight_type}_weight in {source}: {weight}. "
+                "Weight must be >= 0.0."
+            )
+
+
+class DuplicateFillRateAccuracyFuncError(CobjectricError):
+    """
+    Exception raised when multiple fill_rate_accuracy_func are defined.
+
+    This exception is raised when a field has both a
+    Spec(fill_rate_accuracy_func=...) and a @fill_rate_accuracy_func decorator,
+    or multiple @fill_rate_accuracy_func decorators.
+    """
+
+    def __init__(self, field_name: str) -> None:
+        """
+        Initialize DuplicateFillRateAccuracyFuncError.
+
+        Args:
+            field_name: The name of the field with duplicate fill_rate_accuracy_func.
+        """
+        self.field_name = field_name
         super().__init__(
-            f"Invalid weight in {source}: {weight}. Weight must be >= 0.0."
+            f"Multiple fill_rate_accuracy_func defined for field '{field_name}'. "
+            "A field can only have one fill_rate_accuracy_func (either from Spec() or "
+            "@fill_rate_accuracy_func decorator, not both)."
+        )
+
+
+class DuplicateSimilarityFuncError(CobjectricError):
+    """
+    Exception raised when multiple similarity_func are defined.
+
+    This exception is raised when a field has both a
+    Spec(similarity_func=...) and a @similarity_func decorator,
+    or multiple @similarity_func decorators.
+    """
+
+    def __init__(self, field_name: str) -> None:
+        """
+        Initialize DuplicateSimilarityFuncError.
+
+        Args:
+            field_name: The name of the field with duplicate similarity_func.
+        """
+        self.field_name = field_name
+        super().__init__(
+            f"Multiple similarity_func defined for field '{field_name}'. "
+            "A field can only have one similarity_func (either from Spec() or "
+            "@similarity_func decorator, not both)."
+        )
+
+
+class InvalidAggregatedFieldError(CobjectricError):
+    """
+    Exception raised when accessing an invalid field in aggregated_fields.
+
+    This exception is raised when trying to access a field that doesn't exist
+    in the aggregated model through aggregated_fields property.
+    """
+
+    def __init__(
+        self,
+        field_name: str,
+        available_fields: list[str],
+        model_type: type | None = None,
+    ) -> None:
+        """
+        Initialize InvalidAggregatedFieldError.
+
+        Args:
+            field_name: The name of the field that was accessed.
+            available_fields: List of available field names.
+            model_type: The model type (optional) for additional context.
+        """
+        self.field_name = field_name
+        self.available_fields = available_fields
+        self.model_type = model_type
+        fields_str = ", ".join(repr(f) for f in available_fields)
+        type_str = f" (from {model_type.__name__})" if model_type else ""
+        super().__init__(
+            f"Invalid aggregated field '{field_name}'{type_str}. "
+            f"Available fields: [{fields_str}]"
+        )
+
+
+class InvalidListCompareStrategyError(CobjectricError):
+    """
+    Exception raised when list_compare_strategy is used on a non-list field.
+
+    This exception is raised when trying to use list_compare_strategy on a field
+    that is not a list[BaseModel] type.
+    """
+
+    def __init__(self, field_name: str) -> None:
+        """
+        Initialize InvalidListCompareStrategyError.
+
+        Args:
+            field_name: The name of the field with invalid list_compare_strategy.
+        """
+        self.field_name = field_name
+        super().__init__(
+            f"list_compare_strategy can only be used on list[BaseModel] fields. "
+            f"Field '{field_name}' is not a list[BaseModel] type."
         )
