@@ -92,6 +92,7 @@ person.name = "Jane"  # AttributeError
 
 ## Next Steps
 
-- Learn more about [BaseModel and Fields](base_model.md)
-- Check out the [API Reference](base_model.md#api-reference)
+- Learn more about [BaseModel](base_model.md)
+- Explore [Field Types](field_types.md) and [Nested Models](nested_models.md)
+- Check out the [Examples](examples.md)
 

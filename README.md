@@ -105,14 +105,15 @@ print(similarity.fields.tags.mean()) # Uses optimal assignment for best matching
 - **Custom Functions**: Define your own fill rate, accuracy, or similarity functions per field
 - **Field Normalizers**: Transform values before validation
 
-See the [documentation](docs/base_model.md) for complete details.
+See the [documentation](docs/index.md) for complete details.
 
 ### Documentation
 
-For more information, see the [documentation](docs/index.md):
+For more information, check out the [full documentation](docs/index.md):
 
 - [Quick Start](docs/quickstart.md) - Get started in 5 minutes
-- [BaseModel and Fields](docs/base_model.md) - Detailed guide and API reference
+- [Examples](docs/examples.md) - Real-world usage examples
+- [Documentation Index](docs/index.md) - Complete guide to all features
 
 
 ## 🛠️ Development
