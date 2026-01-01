@@ -90,7 +90,9 @@ def Spec(  # noqa: N802
     # Convert string to enum if needed
     strategy: ListCompareStrategy = ListCompareStrategy.PAIRWISE
     if list_compare_strategy is not None:
-        if isinstance(list_compare_strategy, str):
+        if isinstance(list_compare_strategy, ListCompareStrategy):
+            strategy = list_compare_strategy
+        elif isinstance(list_compare_strategy, str):
             try:
                 strategy = ListCompareStrategy(list_compare_strategy)
             except ValueError as e:
@@ -99,7 +101,10 @@ def Spec(  # noqa: N802
                     f"Valid values: {[s.value for s in ListCompareStrategy]}"
                 ) from e
         else:
-            strategy = list_compare_strategy
+            raise ValueError(
+                f"list_compare_strategy must be str or ListCompareStrategy, "
+                f"got {type(list_compare_strategy).__name__}"
+            )
 
     return FieldSpec(
         metadata=metadata if metadata is not None else {},

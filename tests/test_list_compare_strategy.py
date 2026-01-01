@@ -657,11 +657,49 @@ def test_list_compare_strategy_string_value() -> None:
     assert result.fields.items[0].fields.name.value == 1.0
 
 
+def test_list_compare_strategy_enum_value() -> None:
+    """Test that list_compare_strategy accepts ListCompareStrategy enum values."""
+
+    class Item(BaseModel):
+        name: str
+
+    class Order(BaseModel):
+        items: list[Item] = Spec(list_compare_strategy=ListCompareStrategy.PAIRWISE)
+
+    order_got = Order.from_dict({"items": [{"name": "Apple"}]})
+    order_expected = Order.from_dict({"items": [{"name": "Apple"}]})
+
+    result = order_got.compute_similarity(order_expected)
+
+    assert isinstance(result.fields.items, FillRateListResult)
+    assert len(result.fields.items) == 1
+    assert result.fields.items[0].fields.name.value == 1.0
+
+
 def test_list_compare_strategy_invalid_string_raises() -> None:
     """Test that invalid string value for list_compare_strategy raises error."""
 
     with pytest.raises(ValueError):
         Spec(list_compare_strategy="invalid_strategy")
+
+
+def test_list_compare_strategy_invalid_type_raises() -> None:
+    """Test that invalid type for list_compare_strategy raises error."""
+
+    with pytest.raises(
+        ValueError, match="list_compare_strategy must be str or ListCompareStrategy"
+    ):
+        Spec(list_compare_strategy=42)  # type: ignore[arg-type]
+
+    with pytest.raises(
+        ValueError, match="list_compare_strategy must be str or ListCompareStrategy"
+    ):
+        Spec(list_compare_strategy=[])  # type: ignore[arg-type]
+
+    with pytest.raises(
+        ValueError, match="list_compare_strategy must be str or ListCompareStrategy"
+    ):
+        Spec(list_compare_strategy={})  # type: ignore[arg-type]
 
 
 def test_list_compare_strategy_nested_models() -> None:

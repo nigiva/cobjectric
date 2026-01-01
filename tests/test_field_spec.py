@@ -1,4 +1,4 @@
-from cobjectric import BaseModel, FieldSpec, MissingValue, Spec
+from cobjectric import BaseModel, FieldSpec, ListCompareStrategy, MissingValue, Spec
 
 
 def test_field_spec_creation() -> None:
@@ -276,3 +276,11 @@ def test_spec_with_invalid_type() -> None:
     assert person.fields.age.value is MissingValue
     assert isinstance(person.fields.age.spec, FieldSpec)
     assert person.fields.age.spec.metadata == {}
+
+
+def test_spec_with_list_compare_strategy_enum() -> None:
+    """Test that Spec accepts ListCompareStrategy enum directly."""
+    for strategy_enum in ListCompareStrategy:
+        spec = Spec(list_compare_strategy=strategy_enum)
+        assert spec.list_compare_strategy == strategy_enum
+        assert isinstance(spec.list_compare_strategy, ListCompareStrategy)

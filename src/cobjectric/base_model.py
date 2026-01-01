@@ -976,14 +976,13 @@ class BaseModel:
         Returns:
             List of tuples (got_index, expected_index) representing the alignment.
         """
-        if strategy == ListCompareStrategy.PAIRWISE:
-            return align_pairwise(got_list, expected_list)
-        elif strategy == ListCompareStrategy.LEVENSHTEIN:
-            return align_levenshtein(got_list, expected_list, compute_func)
-        elif strategy == ListCompareStrategy.OPTIMAL_ASSIGNMENT:
-            return align_optimal_assignment(got_list, expected_list, compute_func)
-        else:
-            raise ValueError(f"Unknown strategy: {strategy}")
+        match strategy:
+            case ListCompareStrategy.PAIRWISE:
+                return align_pairwise(got_list, expected_list)
+            case ListCompareStrategy.LEVENSHTEIN:
+                return align_levenshtein(got_list, expected_list, compute_func)
+            case ListCompareStrategy.OPTIMAL_ASSIGNMENT:
+                return align_optimal_assignment(got_list, expected_list, compute_func)
 
     def compute_similarity(self, expected: BaseModel) -> FillRateModelResult:
         """
