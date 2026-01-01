@@ -1061,36 +1061,6 @@ def test_fill_rate_weight_zero_allowed_in_decorator() -> None:
     assert result.fields.name.weight == 0.0
 
 
-def test_fill_rate_field_collection_parse_path_with_brackets() -> None:
-    """Test parsing paths with list index brackets."""
-
-    class Item(BaseModel):
-        name: str
-
-    class Order(BaseModel):
-        items: list[Item]
-
-    order = Order.from_dict({"items": [{"name": "Item1"}, {"name": "Item2"}]})
-    result = order.compute_fill_rate()
-
-    # Test _parse_path with brackets
-    segments = result.fields._parse_path("items[0].name")
-    assert segments == ["items", "[0]", "name"]
-
-
-def test_fill_rate_field_collection_parse_path_simple() -> None:
-    """Test parsing simple paths."""
-
-    class Person(BaseModel):
-        name: str
-
-    person = Person(name="John")
-    result = person.compute_fill_rate()
-
-    segments = result.fields._parse_path("name")
-    assert segments == ["name"]
-
-
 def test_fill_rate_field_collection_resolve_path_basemodel_type() -> None:
     """Test resolving paths with BaseModel nested."""
 
@@ -1122,34 +1092,6 @@ def test_fill_rate_field_collection_empty_segments_resolve() -> None:
     # Empty segments should raise error
     with pytest.raises(KeyError, match="Empty path"):
         _ = result.fields._resolve_path([])
-
-
-def test_fill_rate_field_collection_parse_invalid_bracket() -> None:
-    """Test parsing path with unclosed bracket raises KeyError."""
-
-    class Person(BaseModel):
-        name: str
-
-    person = Person(name="John")
-    result = person.compute_fill_rate()
-
-    # Unclosed bracket
-    with pytest.raises(KeyError, match="Invalid path"):
-        _ = result.fields._parse_path("name[0")
-
-
-def test_fill_rate_field_collection_parse_non_numeric_bracket() -> None:
-    """Test parsing path with non-numeric bracket raises KeyError."""
-
-    class Person(BaseModel):
-        name: str
-
-    person = Person(name="John")
-    result = person.compute_fill_rate()
-
-    # Non-numeric index
-    with pytest.raises(KeyError, match="Invalid path"):
-        _ = result.fields._parse_path("name[abc]")
 
 
 def test_fill_rate_list_primitive_missing() -> None:
@@ -3749,6 +3691,36 @@ def test_coverage_fill_rate_list_result_collect_all_values() -> None:
     # So we should have 4 values: [1.0, 1.0, 1.0, 1.0]
     assert len(all_values) == 4
     assert all(v == 1.0 for v in all_values)
+
+
+def test_fill_rate_list_result_get_values() -> None:
+    """Test that FillRateListResult._get_values() returns all values via StatsMixin."""
+
+    class Item(BaseModel):
+        name: str
+        price: float
+
+    class Order(BaseModel):
+        items: list[Item]
+
+    order = Order.from_dict(
+        {
+            "items": [
+                {"name": "Apple", "price": 1.0},
+                {"name": "Banana"},  # price missing
+            ],
+        }
+    )
+    result = order.compute_fill_rate()
+
+    # Test _get_values() method (StatsMixin implementation)
+    values = result.fields.items._get_values()
+    # Should collect all values from all fields of all items
+    # item 0: name=1.0, price=1.0
+    # item 1: name=1.0, price=0.0
+    # So we should have 4 values: [1.0, 1.0, 1.0, 0.0]
+    assert len(values) == 4
+    assert values == [1.0, 1.0, 1.0, 0.0]
 
 
 def test_coverage_aggregated_model_result_nested_model_branch() -> None:

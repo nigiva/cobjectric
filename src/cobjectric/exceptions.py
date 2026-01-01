@@ -174,6 +174,30 @@ class DuplicateFillRateAccuracyFuncError(CobjectricError):
         )
 
 
+class DuplicateSimilarityFuncError(CobjectricError):
+    """
+    Exception raised when multiple similarity_func are defined.
+
+    This exception is raised when a field has both a
+    Spec(similarity_func=...) and a @similarity_func decorator,
+    or multiple @similarity_func decorators.
+    """
+
+    def __init__(self, field_name: str) -> None:
+        """
+        Initialize DuplicateSimilarityFuncError.
+
+        Args:
+            field_name: The name of the field with duplicate similarity_func.
+        """
+        self.field_name = field_name
+        super().__init__(
+            f"Multiple similarity_func defined for field '{field_name}'. "
+            "A field can only have one similarity_func (either from Spec() or "
+            "@similarity_func decorator, not both)."
+        )
+
+
 class InvalidAggregatedFieldError(CobjectricError):
     """
     Exception raised when accessing an invalid field in aggregated_fields.
@@ -204,4 +228,26 @@ class InvalidAggregatedFieldError(CobjectricError):
         super().__init__(
             f"Invalid aggregated field '{field_name}'{type_str}. "
             f"Available fields: [{fields_str}]"
+        )
+
+
+class InvalidListCompareStrategyError(CobjectricError):
+    """
+    Exception raised when list_compare_strategy is used on a non-list field.
+
+    This exception is raised when trying to use list_compare_strategy on a field
+    that is not a list[BaseModel] type.
+    """
+
+    def __init__(self, field_name: str) -> None:
+        """
+        Initialize InvalidListCompareStrategyError.
+
+        Args:
+            field_name: The name of the field with invalid list_compare_strategy.
+        """
+        self.field_name = field_name
+        super().__init__(
+            f"list_compare_strategy can only be used on list[BaseModel] fields. "
+            f"Field '{field_name}' is not a list[BaseModel] type."
         )
