@@ -121,6 +121,8 @@ def align_levenshtein(
             continue
 
         # Fallback: prefer delete over insert for consistency
+        # no cover because it's a fallback and should never happen due to
+        # the dp table is filled with the max of match_score, delete_score, insert_score
         if delete_score >= insert_score:  # pragma: no cover
             i -= 1
         else:  # pragma: no cover

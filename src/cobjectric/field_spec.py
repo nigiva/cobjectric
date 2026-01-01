@@ -1,3 +1,4 @@
+import inspect
 import typing as t
 from dataclasses import dataclass, field
 
@@ -12,7 +13,27 @@ from cobjectric.fill_rate import (
 from cobjectric.list_compare import ListCompareStrategy
 from cobjectric.similarities import exact_similarity
 
+if t.TYPE_CHECKING:
+    from cobjectric.context import FieldContext
+
 Normalizer = t.Callable[[t.Any], t.Any]
+ContextualNormalizer = t.Callable[[t.Any, "FieldContext"], t.Any]
+AnyNormalizer = Normalizer | ContextualNormalizer
+
+
+def is_contextual_normalizer(func: AnyNormalizer) -> bool:
+    """
+    Check if normalizer expects context (2 params) or not (1 param).
+
+    Args:
+        func: The normalizer function to check.
+
+    Returns:
+        True if the function expects 2 parameters (value, context),
+        False if it expects 1 parameter (value only).
+    """
+    sig = inspect.signature(func)
+    return len(sig.parameters) >= 2
 
 
 @dataclass
@@ -22,7 +43,7 @@ class FieldSpec:
     """
 
     metadata: dict[str, t.Any] = field(default_factory=dict)
-    normalizer: Normalizer | None = None
+    normalizer: AnyNormalizer | None = None
     fill_rate_func: FillRateFunc = field(default=not_missing_fill_rate)
     fill_rate_weight: float = 1.0
     fill_rate_accuracy_func: FillRateAccuracyFunc = field(
@@ -41,7 +62,7 @@ class FieldSpec:
 # - By returning `Any`, mypy accepts `name: str = Spec()` without complaint
 def Spec(  # noqa: N802
     metadata: dict[str, t.Any] | None = None,
-    normalizer: Normalizer | None = None,
+    normalizer: AnyNormalizer | None = None,
     fill_rate_func: FillRateFunc | None = None,
     fill_rate_weight: float = 1.0,
     fill_rate_accuracy_func: FillRateAccuracyFunc | None = None,
@@ -55,7 +76,9 @@ def Spec(  # noqa: N802
 
     Args:
         metadata (dict[str, Any] | None): Optional metadata for the field.
-        normalizer (Normalizer | None): Optional normalizer function for the field.
+        normalizer (AnyNormalizer | None): Optional normalizer function for the field.
+            Can be a simple normalizer (1 param: value) or contextual
+            (2 params: value, context).
         fill_rate_func (FillRateFunc | None): Optional fill rate function for the field.
         fill_rate_weight (float): Weight for fill rate computation
             (default: 1.0, must be >= 0.0).
