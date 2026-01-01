@@ -128,8 +128,36 @@ class FieldCollection:
 
         for i, segment in enumerate(segments):
             if segment.startswith("[") and segment.endswith("]"):
-                # List index - not yet supported
-                raise KeyError(f"List index access not yet supported: {segment}")
+                # List index access
+                index_str = segment[1:-1]
+                try:
+                    index = int(index_str)
+                except ValueError as e:
+                    raise KeyError(f"Invalid list index: {index_str}") from e
+
+                # Import here to avoid circular import
+                from cobjectric.base_model import BaseModel  # noqa: PLC0415
+
+                if isinstance(current, Field):
+                    if not isinstance(current.value, list):
+                        raise KeyError(f"Cannot use index on non-list field: {segment}")
+                    try:
+                        current = current.value[index]
+                    except IndexError as e:
+                        raise KeyError(f"List index {index} out of range") from e
+                    # Update current_fields if current is now a BaseModel
+                    if isinstance(current, BaseModel):
+                        current_fields = current._fields
+                elif isinstance(current, list):
+                    try:
+                        current = current[index]
+                    except IndexError as e:
+                        raise KeyError(f"List index {index} out of range") from e
+                    if isinstance(current, BaseModel):
+                        current_fields = current._fields
+                else:
+                    raise KeyError(f"Cannot use index on non-list field: {segment}")
+                continue
 
             if segment not in current_fields:
                 raise KeyError(f"Field '{segment}' not found in path")
@@ -141,10 +169,21 @@ class FieldCollection:
                 next_segment = segments[i + 1]
                 # Check if next segment is a list index
                 if next_segment.startswith("[") and next_segment.endswith("]"):
-                    # List index - not yet supported
-                    raise KeyError(
-                        f"List index access not yet supported: {next_segment}"
-                    )
+                    # Will be handled in next iteration
+                    # Import here to avoid circular import
+                    from cobjectric.base_model import BaseModel  # noqa: PLC0415
+
+                    if isinstance(current, Field):
+                        if not isinstance(current.value, list):
+                            raise KeyError(
+                                f"Cannot use index on non-list field '{segment}'"
+                            )
+                        # current_fields stays as is, updated when accessing index
+                        continue
+                    elif isinstance(current, list):
+                        # current_fields stays as is, updated when accessing index
+                        continue
+                    raise KeyError(f"Cannot use index on non-list field '{segment}'")
 
                 # Import here to avoid circular import
                 from cobjectric.base_model import BaseModel  # noqa: PLC0415

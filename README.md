@@ -58,7 +58,8 @@ See the [documentation](docs/base_model.md) for more details on nested models, l
 - **Fill Rate Accuracy**: Compare field completeness between two models (got vs expected)
 - **Typed Models**: Define models with type annotations and automatic validation
 - **Nested Models**: Support for nested model structures with recursive fill rate computation
-- **Path Access**: Access fields using path notation like `result["address.city"]`
+- **List Fields**: Full support for `list[BaseModel]` with index-based and aggregated access
+- **Path Access**: Access fields using path notation like `result["address.city"]` or `result["items[0].name"]`
 - **Field Normalizers**: Transform field values before validation
 - **Flexible Types**: Support for optional fields, union types, typed dicts, and lists
 

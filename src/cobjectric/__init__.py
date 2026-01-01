@@ -14,8 +14,11 @@ from cobjectric.exceptions import (
 from cobjectric.field_spec import FieldSpec, Spec
 from cobjectric.fill_rate import (
     FillRateAccuracyFuncInfo,
+    FillRateAggregatedFieldResult,
+    FillRateAggregatedModelResult,
     FillRateFieldResult,
     FillRateFuncInfo,
+    FillRateListResult,
     FillRateModelResult,
     fill_rate_accuracy_func,
     fill_rate_func,
@@ -45,4 +48,7 @@ __all__ = [
     "FillRateFuncInfo",
     "FillRateAccuracyFuncInfo",
     "FillRateModelResult",
+    "FillRateListResult",
+    "FillRateAggregatedFieldResult",
+    "FillRateAggregatedModelResult",
 ]
