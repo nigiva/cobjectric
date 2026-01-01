@@ -1356,9 +1356,6 @@ print(name_aggregated.quantile(0.5))  # 1.0
 price_aggregated = result.fields.items.aggregated_fields.price
 print(price_aggregated.values)  # [1.0, 0.0]
 print(price_aggregated.mean())  # 0.5
-
-# Note: Direct access via items.name still works for backward compatibility
-# but aggregated_fields is the recommended API
 ```
 
 **Nested Models in Lists**:
@@ -1384,14 +1381,65 @@ order = Order.from_dict({
 
 result = order.compute_fill_rate()
 
-# Access nested model through aggregated (recommended API)
+# Access nested model through aggregated
 address_aggregated = result.fields.items.aggregated_fields.address  # FillRateAggregatedModelResult
-city_aggregated = address_aggregated.aggregated_fields.city  # FillRateAggregatedFieldResult
+city_aggregated = address_aggregated.city  # FillRateAggregatedFieldResult (FillRateAggregatedModelResult uses __getattr__ directly)
 print(city_aggregated.values)  # [1.0, 1.0]
-print(address_aggregated.aggregated_fields.street.values)  # [1.0, 0.0]
-
-# Note: Direct access via items.address still works for backward compatibility
+print(address_aggregated.street.values)  # [1.0, 0.0]
 ```
+
+**Limitations - Nested Lists**:
+
+Aggregation only works for `list[BaseModel]`, not for nested lists like `list[list[BaseModel]]`:
+
+```python
+class Tag(BaseModel):
+    name: str
+
+class Item(BaseModel):
+    tags: list[Tag]  # This works with aggregation
+
+class Catalog(BaseModel):
+    items: list[Item]
+
+catalog = Catalog.from_dict({
+    "items": [
+        {"tags": [{"name": "a"}, {"name": "b"}]},
+        {"tags": [{"name": "c"}]},
+    ],
+})
+
+result = catalog.compute_fill_rate()
+
+# Accessing items.aggregated_fields.tags returns the mean fill rate
+# of each tags list, not individual tag fields
+tags_agg = result.fields.items.aggregated_fields.tags
+# Returns FillRateAggregatedFieldResult with values = [1.0, 1.0]
+# (one value per item, representing the mean fill rate of each tags list)
+
+# To access individual tag fields, use indexed access:
+item0_tags = result.fields.items[0].fields.tags  # FillRateListResult
+tag0 = item0_tags[0]  # FillRateModelResult for first tag
+```
+
+For `list[list[str]]` or `list[list[int]]`, the field is treated as a `list[Primitive]`:
+
+```python
+class Person(BaseModel):
+    skills: list[list[str]]  # Nested list of primitives
+
+person = Person(skills=[["Python", "Rust"], ["JavaScript"]])
+
+result = person.compute_fill_rate()
+
+# skills is treated as list[Primitive], returns FillRateFieldResult
+# 0.0 if empty, 1.0 if non-empty
+print(result.fields.skills.value)  # 1.0 (non-empty list)
+
+
+```
+
+:warning: No aggregation is available for nested lists of primitives
 
 **Empty or Missing Lists**:
 
@@ -1613,8 +1661,6 @@ print(result.fields.items[0].fields.price.value)  # 1.0
 # Aggregated access works too (recommended API)
 print(result.fields.items.aggregated_fields.name.values)   # [1.0, 1.0]
 print(result.fields.items.aggregated_fields.price.values)  # [1.0, 1.0]
-
-# Note: Direct access via items.name still works for backward compatibility
 ```
 
 **Different List Lengths**:

@@ -915,7 +915,7 @@ def test_accuracy_field_is_basemodel_instance_expected_missing() -> None:
 def test_accuracy_field_wraps_basemodel_expected_not_basemodel() -> None:
     """Test when Field wraps a BaseModel value but expected is not BaseModel.
 
-    This tests the specific code path at lines 770-793 where:
+    This tests the case where:
     - field is a Field (not BaseModel directly)
     - field.type is a BaseModel type
     - field.value is a BaseModel instance (not MissingValue)
@@ -953,7 +953,7 @@ def test_accuracy_field_wraps_basemodel_expected_not_basemodel() -> None:
     result = person_got.compute_fill_rate_accuracy(person_expected)
 
     # field.value is BaseModel, expected_value is NOT BaseModel
-    # -> should hit lines 776-793: accuracy = 0.0 for all nested fields
+    # -> accuracy should be 0.0 for all nested fields
     assert isinstance(result.fields.address, FillRateModelResult)
     assert result.fields.address.fields.street.value == 0.0
     assert result.fields.address.fields.city.value == 0.0
@@ -962,7 +962,7 @@ def test_accuracy_field_wraps_basemodel_expected_not_basemodel() -> None:
 def test_accuracy_field_wraps_basemodel_both_present() -> None:
     """Test when Field wraps a BaseModel and expected is also BaseModel.
 
-    This tests lines 772-775 where both are BaseModel instances.
+    This tests the case where both are BaseModel instances.
     """
 
     class Address(BaseModel):
@@ -1147,9 +1147,11 @@ def test_accuracy_list_basemodel_aggregated() -> None:
 
     # name: both items have name -> [1.0, 1.0]
     # price: item 0 both have, item 1 got missing -> [1.0, 0.0]
-    assert isinstance(result.fields.items.name, FillRateAggregatedFieldResult)
-    assert result.fields.items.name.values == [1.0, 1.0]
-    assert result.fields.items.price.values == [1.0, 0.0]
+    assert isinstance(
+        result.fields.items.aggregated_fields.name, FillRateAggregatedFieldResult
+    )
+    assert result.fields.items.aggregated_fields.name.values == [1.0, 1.0]
+    assert result.fields.items.aggregated_fields.price.values == [1.0, 0.0]
 
 
 def test_accuracy_list_basemodel_type_mismatch() -> None:

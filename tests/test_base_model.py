@@ -1964,7 +1964,7 @@ def test_dict_without_type_args() -> None:
 
 
 def test_dict_typing_without_args() -> None:
-    """Test that t.Dict without type args works (covers line 289)."""
+    """Test that t.Dict without type args works."""
 
     class Person(BaseModel):
         name: str

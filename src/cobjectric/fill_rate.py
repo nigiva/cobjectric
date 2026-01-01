@@ -677,7 +677,15 @@ class FillRateAggregatedModelResult:
     """
     Aggregated result for a nested model field across list items.
 
-    Allows chained access: items.address.city
+    Allows chained access: items.aggregated_fields.address.city
+
+    Note:
+        For nested lists (list[list[BaseModel]]), accessing a nested list field
+        returns the mean fill rate of each list, not individual field access.
+        For example, if items have a tags field of type list[Tag], accessing
+        items.aggregated_fields.tags returns a FillRateAggregatedFieldResult
+        with the mean fill rate of each tags list, not access to individual
+        tag fields.
     """
 
     _items: list[FillRateModelResult]
@@ -785,6 +793,11 @@ class FillRateListAggregatedProxy:
 
     Provides access to aggregated field results across all items
     in the list.
+
+    Note:
+        For nested lists (list[list[BaseModel]]), accessing a nested list
+        field returns the mean fill rate of each list, not individual field
+        access. Use indexed access to access nested list items individually.
     """
 
     def __init__(self, items: list[FillRateModelResult]) -> None:
@@ -837,8 +850,7 @@ class FillRateListResult:
 
     Provides two access modes:
     - By index: items[0] -> FillRateModelResult
-    - Aggregated: items.name -> FillRateAggregatedFieldResult
-    - Aggregated (recommended): items.aggregated_fields.name ->
+    - Aggregated (required): items.aggregated_fields.name ->
         FillRateAggregatedFieldResult
     """
 
@@ -877,39 +889,6 @@ class FillRateListResult:
             FillRateListAggregatedProxy instance.
         """
         return FillRateListAggregatedProxy(self._items)
-
-    def __getattr__(
-        self, name: str
-    ) -> FillRateAggregatedFieldResult | FillRateAggregatedModelResult:
-        """
-        Get aggregated result for a field name across all items.
-
-        Args:
-            name: The field name.
-
-        Returns:
-            FillRateAggregatedFieldResult or FillRateAggregatedModelResult.
-        """
-        values: list[float] = []
-        weights: list[float] = []
-        nested_items: list[FillRateModelResult] = []
-
-        for item in self._items:
-            if name in item._fields:
-                field = item._fields[name]
-                if isinstance(field, FillRateFieldResult):
-                    values.append(field.value)
-                    weights.append(field.weight)
-                elif isinstance(field, FillRateModelResult):
-                    nested_items.append(field)
-                elif isinstance(field, FillRateListResult):
-                    # Nested list - aggregate mean of each list
-                    values.append(field.mean())
-                    weights.append(field.weight)
-
-        if nested_items:
-            return FillRateAggregatedModelResult(_items=nested_items)
-        return FillRateAggregatedFieldResult(_values=values, _weights=weights)
 
     @property
     def value(self) -> float:

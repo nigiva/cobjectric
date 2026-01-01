@@ -1423,8 +1423,12 @@ def test_fill_rate_list_aggregated_field_access() -> None:
     )
     result = order.compute_fill_rate()
 
-    assert isinstance(result.fields.items.name, FillRateAggregatedFieldResult)
-    assert isinstance(result.fields.items.price, FillRateAggregatedFieldResult)
+    assert isinstance(
+        result.fields.items.aggregated_fields.name, FillRateAggregatedFieldResult
+    )
+    assert isinstance(
+        result.fields.items.aggregated_fields.price, FillRateAggregatedFieldResult
+    )
 
     # Test aggregated_fields API (recommended)
     assert isinstance(
@@ -1456,8 +1460,8 @@ def test_fill_rate_list_aggregated_values() -> None:
     )
     result = order.compute_fill_rate()
 
-    assert result.fields.items.name.values == [1.0, 1.0, 0.0]
-    assert result.fields.items.price.values == [1.0, 0.0, 1.0]
+    assert result.fields.items.aggregated_fields.name.values == [1.0, 1.0, 0.0]
+    assert result.fields.items.aggregated_fields.price.values == [1.0, 0.0, 1.0]
 
 
 def test_fill_rate_list_aggregated_mean() -> None:
@@ -1481,7 +1485,7 @@ def test_fill_rate_list_aggregated_mean() -> None:
     result = order.compute_fill_rate()
 
     # name values: [1.0, 1.0, 0.0] -> mean = 2/3
-    assert result.fields.items.name.mean() == pytest.approx(2.0 / 3.0)
+    assert result.fields.items.aggregated_fields.name.mean() == pytest.approx(2.0 / 3.0)
 
 
 def test_fill_rate_list_aggregated_max_min() -> None:
@@ -1504,8 +1508,8 @@ def test_fill_rate_list_aggregated_max_min() -> None:
     )
     result = order.compute_fill_rate()
 
-    assert result.fields.items.score.max() == 0.8
-    assert result.fields.items.score.min() == 0.3
+    assert result.fields.items.aggregated_fields.score.max() == 0.8
+    assert result.fields.items.aggregated_fields.score.min() == 0.3
 
 
 def test_fill_rate_list_aggregated_std_var() -> None:
@@ -1533,8 +1537,8 @@ def test_fill_rate_list_aggregated_std_var() -> None:
     variance = sum((x - mean_val) ** 2 for x in values) / len(values)
     std_val = variance**0.5
 
-    assert result.fields.items.score.std() == pytest.approx(std_val)
-    assert result.fields.items.score.var() == pytest.approx(variance)
+    assert result.fields.items.aggregated_fields.score.std() == pytest.approx(std_val)
+    assert result.fields.items.aggregated_fields.score.var() == pytest.approx(variance)
 
 
 def test_fill_rate_list_aggregated_quantile() -> None:
@@ -1557,7 +1561,9 @@ def test_fill_rate_list_aggregated_quantile() -> None:
     )
     result = order.compute_fill_rate()
 
-    assert result.fields.items.score.quantile(0.5) == pytest.approx(0.5)
+    assert result.fields.items.aggregated_fields.score.quantile(0.5) == pytest.approx(
+        0.5
+    )
 
 
 def test_fill_rate_list_aggregated_empty() -> None:
@@ -1572,10 +1578,10 @@ def test_fill_rate_list_aggregated_empty() -> None:
     order = Order.from_dict({"items": []})
     result = order.compute_fill_rate()
 
-    assert result.fields.items.name.values == []
-    assert result.fields.items.name.mean() == 0.0
-    assert result.fields.items.name.max() == 0.0
-    assert result.fields.items.name.min() == 0.0
+    assert result.fields.items.aggregated_fields.name.values == []
+    assert result.fields.items.aggregated_fields.name.mean() == 0.0
+    assert result.fields.items.aggregated_fields.name.max() == 0.0
+    assert result.fields.items.aggregated_fields.name.min() == 0.0
 
 
 def test_fill_rate_list_aggregated_nested_model() -> None:
@@ -1602,10 +1608,15 @@ def test_fill_rate_list_aggregated_nested_model() -> None:
     )
     result = order.compute_fill_rate()
 
-    assert isinstance(result.fields.items.address, FillRateAggregatedModelResult)
-    assert isinstance(result.fields.items.address.city, FillRateAggregatedFieldResult)
-    assert result.fields.items.address.city.values == [1.0, 1.0]
-    assert result.fields.items.address.street.values == [1.0, 0.0]
+    assert isinstance(
+        result.fields.items.aggregated_fields.address, FillRateAggregatedModelResult
+    )
+    assert isinstance(
+        result.fields.items.aggregated_fields.address.city,
+        FillRateAggregatedFieldResult,
+    )
+    assert result.fields.items.aggregated_fields.address.city.values == [1.0, 1.0]
+    assert result.fields.items.aggregated_fields.address.street.values == [1.0, 0.0]
 
     # Test aggregated_fields API (recommended)
     assert isinstance(
@@ -1640,7 +1651,7 @@ def test_fill_rate_list_aggregated_zero_weight() -> None:
     result = order.compute_fill_rate()
 
     # All items have weight 0.0, so mean should be 0.0
-    assert result.fields.items.name.mean() == 0.0
+    assert result.fields.items.aggregated_fields.name.mean() == 0.0
 
 
 def test_fill_rate_list_aggregated_single_value() -> None:
@@ -1661,8 +1672,8 @@ def test_fill_rate_list_aggregated_single_value() -> None:
     )
     result = order.compute_fill_rate()
 
-    assert result.fields.items.name.std() == 0.0
-    assert result.fields.items.name.var() == 0.0
+    assert result.fields.items.aggregated_fields.name.std() == 0.0
+    assert result.fields.items.aggregated_fields.name.var() == 0.0
 
 
 def test_fill_rate_list_aggregated_quantile_invalid() -> None:
@@ -1685,10 +1696,10 @@ def test_fill_rate_list_aggregated_quantile_invalid() -> None:
     result = order.compute_fill_rate()
 
     with pytest.raises(ValueError, match="Quantile q must be between 0.0 and 1.0"):
-        _ = result.fields.items.name.quantile(1.5)
+        _ = result.fields.items.aggregated_fields.name.quantile(1.5)
 
     with pytest.raises(ValueError, match="Quantile q must be between 0.0 and 1.0"):
-        _ = result.fields.items.name.quantile(-0.1)
+        _ = result.fields.items.aggregated_fields.name.quantile(-0.1)
 
 
 def test_fill_rate_list_aggregated_quantile_empty() -> None:
@@ -1703,7 +1714,7 @@ def test_fill_rate_list_aggregated_quantile_empty() -> None:
     order = Order.from_dict({"items": []})
     result = order.compute_fill_rate()
 
-    assert result.fields.items.name.quantile(0.5) == 0.0
+    assert result.fields.items.aggregated_fields.name.quantile(0.5) == 0.0
 
 
 def test_fill_rate_list_aggregated_quantile_boundaries() -> None:
@@ -1727,9 +1738,9 @@ def test_fill_rate_list_aggregated_quantile_boundaries() -> None:
     result = order.compute_fill_rate()
 
     # quantile(0.0) should return min value
-    assert result.fields.items.score.quantile(0.0) == 0.3
+    assert result.fields.items.aggregated_fields.score.quantile(0.0) == 0.3
     # quantile(1.0) should return max value
-    assert result.fields.items.score.quantile(1.0) == 0.8
+    assert result.fields.items.aggregated_fields.score.quantile(1.0) == 0.8
 
 
 def test_fill_rate_list_aggregated_nested_list() -> None:
@@ -1767,10 +1778,12 @@ def test_fill_rate_list_aggregated_nested_list() -> None:
     result = order.compute_fill_rate()
 
     # Access nested list aggregated - returns mean of each list
-    assert isinstance(result.fields.items.subitems, FillRateAggregatedFieldResult)
+    assert isinstance(
+        result.fields.items.aggregated_fields.subitems, FillRateAggregatedFieldResult
+    )
     # Each item's subitems list has mean=1.0 (all fields filled)
     # So values should be [1.0, 1.0] (one value per item)
-    assert result.fields.items.subitems.values == [1.0, 1.0]
+    assert result.fields.items.aggregated_fields.subitems.values == [1.0, 1.0]
 
 
 def test_fill_rate_list_aggregated_model_empty() -> None:
@@ -1790,11 +1803,13 @@ def test_fill_rate_list_aggregated_model_empty() -> None:
     result = order.compute_fill_rate()
 
     # Empty list should return empty aggregated field result
-    assert isinstance(result.fields.items.address, FillRateAggregatedFieldResult)
-    assert result.fields.items.address.values == []
-    assert result.fields.items.address.mean() == 0.0
-    assert result.fields.items.address.max() == 0.0
-    assert result.fields.items.address.min() == 0.0
+    assert isinstance(
+        result.fields.items.aggregated_fields.address, FillRateAggregatedFieldResult
+    )
+    assert result.fields.items.aggregated_fields.address.values == []
+    assert result.fields.items.aggregated_fields.address.mean() == 0.0
+    assert result.fields.items.aggregated_fields.address.max() == 0.0
+    assert result.fields.items.aggregated_fields.address.min() == 0.0
 
 
 def test_fill_rate_list_aggregated_model_stats() -> None:
@@ -1823,10 +1838,14 @@ def test_fill_rate_list_aggregated_model_stats() -> None:
 
     # address.city values: [0.5, 1.0, 1.0]
     # address mean per item: [0.5, 1.0, 1.0]
-    assert isinstance(result.fields.items.address, FillRateAggregatedModelResult)
-    assert result.fields.items.address.mean() == pytest.approx(0.8333, abs=0.01)
-    assert result.fields.items.address.max() == 1.0
-    assert result.fields.items.address.min() == 0.5
+    assert isinstance(
+        result.fields.items.aggregated_fields.address, FillRateAggregatedModelResult
+    )
+    assert result.fields.items.aggregated_fields.address.mean() == pytest.approx(
+        0.8333, abs=0.01
+    )
+    assert result.fields.items.aggregated_fields.address.max() == 1.0
+    assert result.fields.items.aggregated_fields.address.min() == 0.5
 
 
 def test_fill_rate_list_aggregated_model_std_var() -> None:
@@ -1853,14 +1872,18 @@ def test_fill_rate_list_aggregated_model_std_var() -> None:
     result = order.compute_fill_rate()
 
     # address mean per item: [0.3, 0.8, 0.8]
-    assert isinstance(result.fields.items.address, FillRateAggregatedModelResult)
+    assert isinstance(
+        result.fields.items.aggregated_fields.address, FillRateAggregatedModelResult
+    )
     means = [0.3, 0.8, 0.8]
     mean_val = sum(means) / len(means)
     variance = sum((x - mean_val) ** 2 for x in means) / len(means)
     std_val = variance**0.5
 
-    assert result.fields.items.address.std() == pytest.approx(std_val)
-    assert result.fields.items.address.var() == pytest.approx(variance)
+    assert result.fields.items.aggregated_fields.address.std() == pytest.approx(std_val)
+    assert result.fields.items.aggregated_fields.address.var() == pytest.approx(
+        variance
+    )
 
 
 def test_fill_rate_list_aggregated_model_single_item() -> None:
@@ -1886,10 +1909,16 @@ def test_fill_rate_list_aggregated_model_single_item() -> None:
     result = order.compute_fill_rate()
 
     # Single item should work
-    assert isinstance(result.fields.items.address, FillRateAggregatedModelResult)
-    assert result.fields.items.address.mean() == 1.0
-    assert result.fields.items.address.std() == 0.0  # Single item -> std = 0
-    assert result.fields.items.address.var() == 0.0  # Single item -> var = 0
+    assert isinstance(
+        result.fields.items.aggregated_fields.address, FillRateAggregatedModelResult
+    )
+    assert result.fields.items.aggregated_fields.address.mean() == 1.0
+    assert (
+        result.fields.items.aggregated_fields.address.std() == 0.0
+    )  # Single item -> std = 0
+    assert (
+        result.fields.items.aggregated_fields.address.var() == 0.0
+    )  # Single item -> var = 0
 
 
 def test_fill_rate_list_result_value_property() -> None:
@@ -1986,10 +2015,15 @@ def test_fill_rate_list_aggregated_nested_model_access() -> None:
     result = order.compute_fill_rate()
 
     # Access nested model through aggregated
-    assert isinstance(result.fields.items.address, FillRateAggregatedModelResult)
+    assert isinstance(
+        result.fields.items.aggregated_fields.address, FillRateAggregatedModelResult
+    )
     # Then access field of nested model
-    assert isinstance(result.fields.items.address.city, FillRateAggregatedFieldResult)
-    assert result.fields.items.address.city.values == [1.0, 1.0]
+    assert isinstance(
+        result.fields.items.aggregated_fields.address.city,
+        FillRateAggregatedFieldResult,
+    )
+    assert result.fields.items.aggregated_fields.address.city.values == [1.0, 1.0]
 
 
 def test_fill_rate_aggregated_model_empty_items_direct() -> None:
@@ -2061,7 +2095,7 @@ def test_fill_rate_model_result_with_list_collects_values_and_weights() -> None:
 
 
 def test_fill_rate_list_aggregated_nested_list_explicit() -> None:
-    """Test that accessing nested list through aggregated works (covers lines 712-715)."""
+    """Test that accessing nested list through aggregated works."""
 
     class SubItem(BaseModel):
         name: str
@@ -2094,10 +2128,11 @@ def test_fill_rate_list_aggregated_nested_list_explicit() -> None:
     result = order.compute_fill_rate()
 
     # Access nested list through aggregated - should aggregate mean of each list
-    # This should cover lines 707-712, 715 in FillRateListResult.__getattr__
-    assert isinstance(result.fields.items.subitems, FillRateAggregatedFieldResult)
+    assert isinstance(
+        result.fields.items.aggregated_fields.subitems, FillRateAggregatedFieldResult
+    )
     # Each item's subitems list has mean=1.0, so values should be [1.0, 1.0]
-    assert result.fields.items.subitems.values == [1.0, 1.0]
+    assert result.fields.items.aggregated_fields.subitems.values == [1.0, 1.0]
 
 
 def test_field_collection_list_access_basemodel():
@@ -2343,8 +2378,7 @@ def test_fill_rate_list_nested_list_aggregation():
     result = order.compute_fill_rate()
 
     # Access aggregated nested list
-    # This exercises lines 707-712, 715 in FillRateListResult.__getattr__
-    subitems_agg = result.fields.items.subitems
+    subitems_agg = result.fields.items.aggregated_fields.subitems
     assert isinstance(subitems_agg, FillRateAggregatedFieldResult)
     # First item has 2 subitems (mean=1.0), second has 1 (mean=1.0)
     assert subitems_agg.values == [1.0, 1.0]
@@ -2371,7 +2405,6 @@ def test_field_collection_basemodel_list_updates_fields_via_path():
         }
     )
 
-    # This should exercise line 157 in field_collection.py
     # Accessing items[0] returns an Item instance, then we access its address.city
     city = container["items[0].address.city"]
     assert isinstance(city, Field)
@@ -2407,7 +2440,7 @@ def test_fill_rate_list_basemodel_nested_aggregation_complete():
     result = order.compute_fill_rate()
 
     # Access aggregated nested lists to exercise all paths
-    subitems_agg = result.fields.items.subitems
+    subitems_agg = result.fields.items.aggregated_fields.subitems
     assert isinstance(subitems_agg, FillRateAggregatedFieldResult)
     assert subitems_agg.values == [1.0, 1.0, 1.0]
     assert subitems_agg.mean() == 1.0
@@ -2419,9 +2452,9 @@ def test_fill_rate_list_aggregated_nested_model_returns_aggregated_model_result(
     """Test that accessing a nested model field via aggregated access
     returns FillRateAggregatedModelResult.
 
-    This covers lines 707-708 and 715 in fill_rate.py:
-    - elif isinstance(field, FillRateModelResult): nested_items.append(field)
-    - return FillRateAggregatedModelResult(_items=nested_items)
+    When accessing a nested model field through aggregated_fields,
+    it should return FillRateAggregatedModelResult containing all
+    nested model results.
     """
 
     class Address(BaseModel):
@@ -2447,8 +2480,8 @@ def test_fill_rate_list_aggregated_nested_model_returns_aggregated_model_result(
     result = order.compute_fill_rate()
 
     # Access the nested model via aggregated access
-    # This should return FillRateAggregatedModelResult (line 715)
-    address_agg = result.fields.items.address
+    # This should return FillRateAggregatedModelResult
+    address_agg = result.fields.items.aggregated_fields.address
     assert isinstance(address_agg, FillRateAggregatedModelResult)
 
     # Access nested field within the aggregated model result
@@ -2458,11 +2491,7 @@ def test_fill_rate_list_aggregated_nested_model_returns_aggregated_model_result(
 
 
 def test_field_collection_index_on_non_list_field_direct():
-    """Test that accessing an index on a non-list Field raises KeyError.
-
-    This covers line 143 in field_collection.py:
-    - raise KeyError(f"Cannot use index on non-list field: {segment}")
-    """
+    """Test that accessing an index on a non-list Field raises KeyError."""
 
     class Person(BaseModel):
         name: str
@@ -2482,11 +2511,7 @@ def test_field_collection_index_on_non_list_field_direct():
 
 
 def test_field_collection_list_of_basemodel_updates_current_fields():
-    """Test that accessing a BaseModel from a list updates current_fields.
-
-    This covers line 157 in field_collection.py:
-    - current_fields = current._fields (when current is BaseModel from list)
-    """
+    """Test that accessing a BaseModel from a list updates current_fields."""
 
     class Address(BaseModel):
         city: str
@@ -2508,18 +2533,13 @@ def test_field_collection_list_of_basemodel_updates_current_fields():
 
     # Access data[0][0].address.city
     # After data[0] we get a list, then [0] gives us an Item BaseModel
-    # Line 157 should be hit when we update current_fields after [0][0]
+    # current_fields should be updated when accessing the BaseModel
     city = container["data[0][0].address.city"]
     assert city.value == "NYC"
 
 
 def test_field_collection_list_followed_by_index():
-    """Test path access where current is a list followed by another index.
-
-    This covers lines 183-186 in field_collection.py:
-    - elif isinstance(current, list): continue
-    - raise KeyError(...)
-    """
+    """Test path access where current is a list followed by another index."""
 
     class Container(BaseModel):
         data: list[list[str]]
@@ -2534,7 +2554,6 @@ def test_field_collection_list_followed_by_index():
     )
 
     # Access data[0][1] - after data[0] we have a list, then [1] accesses element
-    # This exercises the isinstance(current, list) branch at line 183
     element = container["data[0][1]"]
     assert element == "b"
 
@@ -2543,11 +2562,7 @@ def test_field_collection_list_followed_by_index():
 
 
 def test_field_collection_cannot_index_on_primitive_in_list():
-    """Test that trying to index a primitive value from a list raises KeyError.
-
-    This covers line 186 in field_collection.py:
-    - raise KeyError(f"Cannot use index on non-list field '{segment}'")
-    """
+    """Test that trying to index a primitive value from a list raises KeyError."""
 
     class Container(BaseModel):
         data: list[list[str]]
@@ -2572,10 +2587,7 @@ def test_field_collection_cannot_index_on_primitive_in_list():
 
 
 def test_fill_rate_aggregated_nested_model_via_list():
-    """Test FillRateListResult.__getattr__ returns FillRateAggregatedModelResult.
-
-    This covers lines 707-708, 715 in fill_rate.py.
-    """
+    """Test FillRateListAggregatedProxy.__getattr__ returns FillRateAggregatedModelResult."""
 
     class Address(BaseModel):
         city: str
@@ -2603,8 +2615,8 @@ def test_fill_rate_aggregated_nested_model_via_list():
     # Access nested model field through aggregated access
     # employees.address should return FillRateAggregatedModelResult
     employees_list = result.fields.employees
-    # Use attribute access (triggers __getattr__)
-    address_agg = employees_list.address
+    # Use aggregated_fields access
+    address_agg = employees_list.aggregated_fields.address
     assert isinstance(address_agg, FillRateAggregatedModelResult)
 
     # Access field within aggregated model result
@@ -2615,10 +2627,7 @@ def test_fill_rate_aggregated_nested_model_via_list():
 
 
 def test_fill_rate_aggregated_nested_list_in_list():
-    """Test FillRateListResult.__getattr__ with nested list returns aggregated values.
-
-    This covers lines 709-712 in fill_rate.py.
-    """
+    """Test FillRateListAggregatedProxy.__getattr__ with nested list returns aggregated values."""
 
     class Tag(BaseModel):
         name: str
@@ -2644,8 +2653,8 @@ def test_fill_rate_aggregated_nested_list_in_list():
     # Access nested list through aggregated access
     # items.tags should return FillRateAggregatedFieldResult with mean values
     items_list = result.fields.items
-    # Use attribute access (triggers __getattr__)
-    tags_agg = items_list.tags
+    # Use aggregated_fields access
+    tags_agg = items_list.aggregated_fields.tags
     assert isinstance(tags_agg, FillRateAggregatedFieldResult)
     # Each item's tags list has mean fill rate of 1.0
     assert tags_agg.values == [1.0, 1.0]

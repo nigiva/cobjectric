@@ -437,7 +437,7 @@ def test_path_access_field_collection_field_with_nested_basemodel() -> None:
 def test_path_access_field_wrapping_basemodel() -> None:
     """Test path access when a Field wraps a BaseModel value (not MissingValue).
 
-    This specifically tests line 159 in field_collection.py where:
+    This tests the case where:
     - current is a Field
     - current.value is not MissingValue
     - current.value is a BaseModel instance
