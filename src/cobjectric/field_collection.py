@@ -123,59 +123,128 @@ class FieldCollection:
         if not segments:
             raise KeyError("Empty path")
 
-        current: Field | BaseModel | t.Any | None = None
-        current_fields = self._fields
+        segment = segments[0]
+        remaining = segments[1:]
 
-        for i, segment in enumerate(segments):
-            if segment.startswith("[") and segment.endswith("]"):
-                # List index - not yet supported
-                raise KeyError(f"List index access not yet supported: {segment}")
+        # A path cannot start with an index - this is handled at the list level
+        if segment.startswith("[") and segment.endswith("]"):
+            raise KeyError("Path cannot start with an index. Use field access first.")
 
-            if segment not in current_fields:
-                raise KeyError(f"Field '{segment}' not found in path")
+        # Access the field
+        if segment not in self._fields:
+            raise KeyError(f"Field '{segment}' not found in path")
 
-            current = current_fields[segment]
+        current = self._fields[segment]
 
-            if i < len(segments) - 1:
-                # More segments to go
-                next_segment = segments[i + 1]
-                # Check if next segment is a list index
-                if next_segment.startswith("[") and next_segment.endswith("]"):
-                    # List index - not yet supported
-                    raise KeyError(
-                        f"List index access not yet supported: {next_segment}"
-                    )
+        if not remaining:
+            return current
 
-                # Import here to avoid circular import
-                from cobjectric.base_model import BaseModel  # noqa: PLC0415
+        # Recursive delegation based on type
+        return self._resolve_next(current, segment, remaining)
 
-                if isinstance(current, BaseModel):
-                    current_fields = current._fields
-                elif isinstance(current, Field):
-                    # Check if it's a nested model type
-                    if current.value is not MissingValue and isinstance(
-                        current.value, BaseModel
-                    ):
-                        current_fields = current.value._fields
-                    else:
-                        raise KeyError(
-                            f"Cannot access '{next_segment}' "
-                            f"on non-model field '{segment}'"
-                        )
-                else:
-                    raise KeyError(
-                        f"Cannot access '{next_segment}' on field '{segment}'"
-                    )
+    def _resolve_next(
+        self, current: Field | BaseModel, segment: str, remaining: list[str]
+    ) -> t.Any:
+        """
+        Resolve the next segments after accessing a field.
 
-        assert current is not None, "Invalid path"
+        Args:
+            current: The current field or BaseModel instance.
+            segment: The segment name that was just accessed.
+            remaining: Remaining path segments to resolve.
 
-        # Return the object itself (Field or BaseModel)
-        # The test expects to access .value on Field, so return Field, not Field.value
-        return current
+        Returns:
+            The resolved value.
+
+        Raises:
+            KeyError: If the path is invalid.
+        """
+        # Import here to avoid circular import
+        from cobjectric.base_model import BaseModel  # noqa: PLC0415
+
+        next_segment = remaining[0]
+
+        # If next segment is an index
+        if next_segment.startswith("[") and next_segment.endswith("]"):
+            if isinstance(current, Field):
+                if not isinstance(current.value, list):
+                    raise KeyError(f"Cannot use index on non-list field '{segment}'")
+                # Continue with resolution on the list
+                return self._resolve_list_path(current.value, remaining)
+            elif isinstance(current, list):
+                # Case list[list[...]] - continue resolution
+                return self._resolve_list_path(current, remaining)
+            raise KeyError(f"Cannot use index on non-list field '{segment}'")
+
+        # Otherwise, navigate into nested model via .fields
+        if isinstance(current, BaseModel):
+            return current.fields._resolve_path(remaining)
+        elif isinstance(current, Field):
+            if current.value is not MissingValue and isinstance(
+                current.value, BaseModel
+            ):
+                return current.value.fields._resolve_path(remaining)
+            raise KeyError(
+                f"Cannot access '{next_segment}' on non-model field '{segment}'"
+            )
+
+        raise KeyError(f"Cannot access '{next_segment}' on field '{segment}'")
+
+    def _resolve_list_path(self, items: list[t.Any], segments: list[str]) -> t.Any:
+        """
+        Resolve a path starting from a list.
+
+        Handles list[BaseModel], list[list[...]], list[primitives].
+
+        Args:
+            items: The list to resolve from.
+            segments: Path segments starting with an index.
+
+        Returns:
+            The resolved value.
+
+        Raises:
+            KeyError: If the path is invalid.
+        """
+        # Import here to avoid circular import
+        from cobjectric.base_model import BaseModel  # noqa: PLC0415
+
+        segment = segments[0]
+        remaining = segments[1:]
+
+        # Extract index
+        index_str = segment[1:-1]
+        try:
+            index = int(index_str)
+        except ValueError as e:
+            raise KeyError(f"Invalid list index: {index_str}") from e
+
+        try:
+            item = items[index]
+        except IndexError as e:
+            raise KeyError(f"List index {index} out of range") from e
+
+        if not remaining:
+            return item
+
+        # Continue resolution based on item type
+        next_segment = remaining[0]
+
+        if next_segment.startswith("[") and next_segment.endswith("]"):
+            # list[list[...]] - recursion on sub-list
+            if isinstance(item, list):
+                return self._resolve_list_path(item, remaining)
+            raise KeyError(f"Cannot use index on non-list element at index {index}")
+
+        # Access a field of nested model
+        if isinstance(item, BaseModel):
+            return item.fields._resolve_path(remaining)
+
+        raise KeyError(
+            f"Cannot access '{next_segment}' on non-model element at index {index}"
+        )
 
     def __repr__(self) -> str:
         """Return a string representation of the FieldCollection."""
-        fields_repr = ", ".join(
-            f"{name}={field!r}" for name, field in self._fields.items()
-        )
+        fields_repr = ", ".join(f"{name}=..." for name in self._fields.keys())
         return f"FieldCollection({fields_repr})"

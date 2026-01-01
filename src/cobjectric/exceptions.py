@@ -172,3 +172,36 @@ class DuplicateFillRateAccuracyFuncError(CobjectricError):
             "A field can only have one fill_rate_accuracy_func (either from Spec() or "
             "@fill_rate_accuracy_func decorator, not both)."
         )
+
+
+class InvalidAggregatedFieldError(CobjectricError):
+    """
+    Exception raised when accessing an invalid field in aggregated_fields.
+
+    This exception is raised when trying to access a field that doesn't exist
+    in the aggregated model through aggregated_fields property.
+    """
+
+    def __init__(
+        self,
+        field_name: str,
+        available_fields: list[str],
+        model_type: type | None = None,
+    ) -> None:
+        """
+        Initialize InvalidAggregatedFieldError.
+
+        Args:
+            field_name: The name of the field that was accessed.
+            available_fields: List of available field names.
+            model_type: The model type (optional) for additional context.
+        """
+        self.field_name = field_name
+        self.available_fields = available_fields
+        self.model_type = model_type
+        fields_str = ", ".join(repr(f) for f in available_fields)
+        type_str = f" (from {model_type.__name__})" if model_type else ""
+        super().__init__(
+            f"Invalid aggregated field '{field_name}'{type_str}. "
+            f"Available fields: [{fields_str}]"
+        )

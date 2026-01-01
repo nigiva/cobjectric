@@ -1270,6 +1270,193 @@ print(nested_result.fields.street.value)  # 0.0
 print(nested_result.fields.city.value)    # 0.0
 ```
 
+### Fill Rate with List Fields
+
+Fill rate computation supports list fields with two different behaviors depending on the list element type.
+
+#### List of Primitive Types
+
+For `list[str]`, `list[int]`, etc., the fill rate is:
+- `0.0` if the field is `MissingValue` or an empty list `[]`
+- `1.0` if the list is non-empty
+
+```python
+class Person(BaseModel):
+    name: str
+    tags: list[str]
+
+person = Person(name="John")
+result = person.compute_fill_rate()
+
+print(result.fields.name.value)  # 1.0
+print(result.fields.tags.value)  # 0.0 (tags is MissingValue)
+
+person = Person(name="John", tags=["python", "rust"])
+result = person.compute_fill_rate()
+
+print(result.fields.tags.value)  # 1.0 (tags is non-empty)
+```
+
+#### List of BaseModel
+
+For `list[BaseModel]`, you get a `FillRateListResult` with two access modes:
+
+**Access by Index** (individual item):
+
+```python
+class Item(BaseModel):
+    name: str
+    price: float
+
+class Order(BaseModel):
+    customer: str
+    items: list[Item]
+
+order = Order.from_dict({
+    "customer": "John",
+    "items": [
+        {"name": "Apple", "price": 1.0},
+        {"name": "Banana"},  # price missing
+    ],
+})
+
+result = order.compute_fill_rate()
+
+# Access list result
+items_result = result.fields.items  # FillRateListResult
+print(len(items_result))  # 2
+
+# Access individual item by index
+item0_result = items_result[0]  # FillRateModelResult for first item
+print(item0_result.fields.name.value)   # 1.0
+print(item0_result.fields.price.value)  # 1.0
+
+item1_result = items_result[1]  # FillRateModelResult for second item
+print(item1_result.fields.name.value)   # 1.0
+print(item1_result.fields.price.value)  # 0.0 (price is missing)
+
+# Iterate over items
+for item_result in items_result:
+    print(item_result.mean())  # Mean fill rate for each item
+```
+
+**Aggregated Access** (statistics across all items):
+
+```python
+# Recommended: Use aggregated_fields for clarity
+name_aggregated = result.fields.items.aggregated_fields.name  # FillRateAggregatedFieldResult
+print(name_aggregated.values)  # [1.0, 1.0] - fill rate for name in each item
+print(name_aggregated.mean())  # 1.0 - mean fill rate for name across items
+print(name_aggregated.max())   # 1.0
+print(name_aggregated.min())   # 1.0
+print(name_aggregated.std())   # 0.0
+print(name_aggregated.var())   # 0.0
+print(name_aggregated.quantile(0.5))  # 1.0
+
+price_aggregated = result.fields.items.aggregated_fields.price
+print(price_aggregated.values)  # [1.0, 0.0]
+print(price_aggregated.mean())  # 0.5
+```
+
+**Nested Models in Lists**:
+
+```python
+class Address(BaseModel):
+    city: str
+    street: str
+
+class Item(BaseModel):
+    name: str
+    address: Address
+
+class Order(BaseModel):
+    items: list[Item]
+
+order = Order.from_dict({
+    "items": [
+        {"name": "Item1", "address": {"city": "NYC", "street": "Main"}},
+        {"name": "Item2", "address": {"city": "LA"}},  # street missing
+    ],
+})
+
+result = order.compute_fill_rate()
+
+# Access nested model through aggregated
+address_aggregated = result.fields.items.aggregated_fields.address  # FillRateAggregatedModelResult
+city_aggregated = address_aggregated.city  # FillRateAggregatedFieldResult (FillRateAggregatedModelResult uses __getattr__ directly)
+print(city_aggregated.values)  # [1.0, 1.0]
+print(address_aggregated.street.values)  # [1.0, 0.0]
+```
+
+**Limitations - Nested Lists**:
+
+Aggregation only works for `list[BaseModel]`, not for nested lists like `list[list[BaseModel]]`:
+
+```python
+class Tag(BaseModel):
+    name: str
+
+class Item(BaseModel):
+    tags: list[Tag]  # This works with aggregation
+
+class Catalog(BaseModel):
+    items: list[Item]
+
+catalog = Catalog.from_dict({
+    "items": [
+        {"tags": [{"name": "a"}, {"name": "b"}]},
+        {"tags": [{"name": "c"}]},
+    ],
+})
+
+result = catalog.compute_fill_rate()
+
+# Accessing items.aggregated_fields.tags returns the mean fill rate
+# of each tags list, not individual tag fields
+tags_agg = result.fields.items.aggregated_fields.tags
+# Returns FillRateAggregatedFieldResult with values = [1.0, 1.0]
+# (one value per item, representing the mean fill rate of each tags list)
+
+# To access individual tag fields, use indexed access:
+item0_tags = result.fields.items[0].fields.tags  # FillRateListResult
+tag0 = item0_tags[0]  # FillRateModelResult for first tag
+```
+
+For `list[list[str]]` or `list[list[int]]`, the field is treated as a `list[Primitive]`:
+
+```python
+class Person(BaseModel):
+    skills: list[list[str]]  # Nested list of primitives
+
+person = Person(skills=[["Python", "Rust"], ["JavaScript"]])
+
+result = person.compute_fill_rate()
+
+# skills is treated as list[Primitive], returns FillRateFieldResult
+# 0.0 if empty, 1.0 if non-empty
+print(result.fields.skills.value)  # 1.0 (non-empty list)
+
+
+```
+
+:warning: No aggregation is available for nested lists of primitives
+
+**Empty or Missing Lists**:
+
+```python
+# Empty list
+order = Order.from_dict({"items": []})
+result = order.compute_fill_rate()
+print(len(result.fields.items))  # 0
+print(result.fields.items.mean())  # 0.0
+
+# Missing list
+order = Order(customer="John")  # items is MissingValue
+result = order.compute_fill_rate()
+print(len(result.fields.items))  # 0
+print(result.fields.items.mean())  # 0.0
+```
+
 ## Fill Rate Accuracy
 
 Fill rate accuracy measures whether fields are correctly filled compared to an expected model, regardless of the actual values. It's different from fill rate, which measures completeness. Fill rate accuracy checks if the "filled" or "missing" state matches between two models.
@@ -1414,6 +1601,92 @@ print(result.fields.address.fields.street.value)  # 1.0
 print(result.fields.address.fields.city.value)   # 1.0
 ```
 
+### Fill Rate Accuracy with List Fields
+
+Fill rate accuracy supports list fields with different behaviors depending on the list element type.
+
+#### List of Primitive Types
+
+For `list[str]`, `list[int]`, etc., accuracy compares whether both lists are filled or both are empty:
+
+```python
+class Person(BaseModel):
+    tags: list[str]
+
+person_got = Person(tags=["python", "rust"])
+person_expected = Person(tags=["java", "go"])
+
+result = person_got.compute_fill_rate_accuracy(person_expected)
+print(result.fields.tags.value)  # 1.0 (both have non-empty lists)
+
+person_got = Person(tags=["python"])
+person_expected = Person()  # tags is MissingValue
+
+result = person_got.compute_fill_rate_accuracy(person_expected)
+print(result.fields.tags.value)  # 0.0 (one filled, one missing)
+```
+
+#### List of BaseModel
+
+For `list[BaseModel]`, accuracy compares items one by one. Only items that exist in both lists are compared:
+
+```python
+class Item(BaseModel):
+    name: str
+    price: float
+
+class Order(BaseModel):
+    items: list[Item]
+
+order_got = Order.from_dict({
+    "items": [
+        {"name": "Apple", "price": 1.0},
+        {"name": "Banana", "price": 0.5},
+    ],
+})
+order_expected = Order.from_dict({
+    "items": [
+        {"name": "Orange", "price": 2.0},
+        {"name": "Cherry", "price": 3.0},
+    ],
+})
+
+result = order_got.compute_fill_rate_accuracy(order_expected)
+
+# Both have 2 items, all fields filled -> accuracy = 1.0 for all
+print(len(result.fields.items))  # 2
+print(result.fields.items[0].fields.name.value)   # 1.0
+print(result.fields.items[0].fields.price.value)  # 1.0
+
+# Aggregated access works too (recommended API)
+print(result.fields.items.aggregated_fields.name.values)   # [1.0, 1.0]
+print(result.fields.items.aggregated_fields.price.values)  # [1.0, 1.0]
+```
+
+**Different List Lengths**:
+
+When lists have different lengths, only the items that exist in both lists are compared:
+
+```python
+order_got = Order.from_dict({
+    "items": [
+        {"name": "Apple"},
+    ],
+})
+order_expected = Order.from_dict({
+    "items": [
+        {"name": "Orange"},
+        {"name": "Cherry"},
+    ],
+})
+
+result = order_got.compute_fill_rate_accuracy(order_expected)
+
+# Only first item is compared (min(len(got), len(expected)))
+print(len(result.fields.items))  # 1
+print(result.fields.items[0].fields.name.value)  # 1.0
+```
+
 ### Duplicate Fill Rate Accuracy Functions
 
 A field can only have one `fill_rate_accuracy_func`. If multiple functions are defined, `DuplicateFillRateAccuracyFuncError` is raised:
@@ -1502,9 +1775,9 @@ print(person["address.city"].value)   # "Anytown"
 print(person["address.street"].value) # "123 Main St"
 ```
 
-### List Index Access (Coming Soon)
+### List Index Access
 
-Path access supports parsing list indices with the syntax `[0]`, `[1]`, etc. The syntax is recognized and parsed, but full support for accessing list elements is not yet implemented:
+Path access supports list indices with the syntax `[0]`, `[1]`, etc. You can access list elements and their nested fields:
 
 ```python
 class Item(BaseModel):
@@ -1520,12 +1793,57 @@ order = Order.from_dict({
         {"name": "Banana", "price": 0.5},
     ],
 })
-result = order.compute_fill_rate()
 
-# Syntax is parsed but raises KeyError when used
-# This will work in a future version:
+# Access list item by index
+item0 = order["items[0]"]  # Returns the Item BaseModel instance
+print(item0.fields.name.value)  # "Apple"
+
+# Access nested field through list index
+name_field = order["items[0].name"]  # Returns Field
+print(name_field.value)  # "Apple"
+
+price_field = order["items[1].price"]
+print(price_field.value)  # 0.5
+
+# Fill rate results also support list index access
+result = order.compute_fill_rate()
+item0_result = result["items[0]"]  # FillRateModelResult
+print(item0_result.fields.name.value)  # 1.0
+
+name_result = result["items[0].name"]  # FillRateFieldResult
+print(name_result.value)  # 1.0
+
+# Multiple nested indices work too
+class Address(BaseModel):
+    city: str
+
+class Item(BaseModel):
+    name: str
+    address: Address
+
+class Order(BaseModel):
+    items: list[Item]
+
+order = Order.from_dict({
+    "items": [
+        {"name": "Item1", "address": {"city": "NYC"}},
+    ],
+})
+
+city_field = order["items[0].address.city"]
+print(city_field.value)  # "NYC"
+
+result = order.compute_fill_rate()
+city_result = result["items[0].address.city"]
+print(city_result.value)  # 1.0
+```
+
+**Error Handling**:
+
+```python
+# Out of range index
 try:
-    _ = result["items[0].name"]  # Raises KeyError: "List index access not yet supported"
+    _ = order["items[99]"]  # Raises KeyError: "List index 99 out of range"
 except KeyError:
     pass
 
@@ -1636,6 +1954,58 @@ if user.fields.age.value is MissingValue:
 - **`fields`** (property): Returns a `FieldCollection` containing all fields
 - **`__init__(**kwargs)`**: Initialize the model with field values
 - **`from_dict(data: dict[str, Any])`** (classmethod): Create a model instance from a dictionary
+- **`__repr__()`**: Returns a string representation of the model (similar to Pydantic)
+
+#### String Representation
+
+BaseModel instances have a `__repr__` method that provides a readable string representation:
+
+```python
+class Address(BaseModel):
+    city: str
+    zip: str
+
+class Person(BaseModel):
+    name: str
+    age: int
+    address: Address
+
+person = Person.from_dict({
+    "name": "John",
+    "age": 30,
+    "address": {"city": "NYC", "zip": "10001"},
+})
+
+print(repr(person))
+# Output: Person(name='John', age=30, address=Address(city='NYC', zip='10001'))
+```
+
+Missing fields are displayed as `MISSING`:
+
+```python
+person = Person(name="John")
+print(repr(person))
+# Output: Person(name='John', age=MISSING, address=MISSING)
+```
+
+Lists are properly represented:
+
+```python
+class Item(BaseModel):
+    name: str
+
+class Order(BaseModel):
+    items: list[Item]
+
+order = Order.from_dict({
+    "items": [
+        {"name": "Apple"},
+        {"name": "Banana"},
+    ],
+})
+print(repr(order))
+# Output: Order(items=[Item(name='Apple'), Item(name='Banana')])
+```
 
 ### Field
 
