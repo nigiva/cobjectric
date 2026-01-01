@@ -1972,3 +1972,137 @@ def test_dict_typing_without_args() -> None:
 
     person = Person(name="John", data={"key": "value", "num": 42})
     assert person.fields.data.value == {"key": "value", "num": 42}
+
+
+def test_base_model_repr_simple() -> None:
+    """Test __repr__ for simple BaseModel."""
+
+    class Person(BaseModel):
+        name: str
+        age: int
+
+    person = Person(name="John", age=30)
+    assert repr(person) == "Person(name='John', age=30)"
+
+
+def test_base_model_repr_with_missing() -> None:
+    """Test __repr__ with missing fields."""
+
+    class Person(BaseModel):
+        name: str
+        age: int
+        email: str
+
+    person = Person(name="John")
+    assert repr(person) == "Person(name='John', age=MISSING, email=MISSING)"
+
+
+def test_base_model_repr_nested() -> None:
+    """Test __repr__ with nested BaseModel."""
+
+    class Address(BaseModel):
+        city: str
+        zip: str
+
+    class Person(BaseModel):
+        name: str
+        address: Address
+
+    person = Person.from_dict(
+        {"name": "John", "address": {"city": "NYC", "zip": "10001"}}
+    )
+    assert (
+        repr(person) == "Person(name='John', address=Address(city='NYC', zip='10001'))"
+    )
+
+
+def test_base_model_repr_nested_with_missing() -> None:
+    """Test __repr__ with nested BaseModel having missing fields."""
+
+    class Address(BaseModel):
+        city: str
+        zip: str
+
+    class Person(BaseModel):
+        name: str
+        address: Address
+
+    person = Person.from_dict({"name": "John", "address": {"city": "NYC"}})
+    assert (
+        repr(person) == "Person(name='John', address=Address(city='NYC', zip=MISSING))"
+    )
+
+
+def test_base_model_repr_with_list() -> None:
+    """Test __repr__ with list field."""
+
+    class Person(BaseModel):
+        name: str
+        tags: list[str]
+
+    person = Person(name="John", tags=["python", "rust"])
+    assert repr(person) == "Person(name='John', tags=['python', 'rust'])"
+
+
+def test_base_model_repr_with_list_of_models() -> None:
+    """Test __repr__ with list[BaseModel]."""
+
+    class Item(BaseModel):
+        name: str
+
+    class Order(BaseModel):
+        items: list[Item]
+
+    order = Order.from_dict({"items": [{"name": "Apple"}, {"name": "Banana"}]})
+    assert repr(order) == "Order(items=[Item(name='Apple'), Item(name='Banana')])"
+
+
+def test_base_model_repr_with_empty_list() -> None:
+    """Test __repr__ with empty list."""
+
+    class Person(BaseModel):
+        name: str
+        tags: list[str]
+
+    person = Person(name="John", tags=[])
+    assert repr(person) == "Person(name='John', tags=[])"
+
+
+def test_base_model_repr_with_missing_list() -> None:
+    """Test __repr__ with missing list field."""
+
+    class Person(BaseModel):
+        name: str
+        tags: list[str]
+
+    person = Person(name="John")
+    assert repr(person) == "Person(name='John', tags=MISSING)"
+
+
+def test_base_model_repr_complex() -> None:
+    """Test __repr__ with complex nested structure."""
+
+    class Address(BaseModel):
+        city: str
+        zip: str
+
+    class Person(BaseModel):
+        name: str
+        age: int
+        address: Address
+        tags: list[str]
+
+    person = Person.from_dict(
+        {
+            "name": "John",
+            "age": 30,
+            "address": {"city": "NYC", "zip": "10001"},
+            "tags": ["python", "rust"],
+        }
+    )
+    expected = (
+        "Person(name='John', age=30, "
+        "address=Address(city='NYC', zip='10001'), "
+        "tags=['python', 'rust'])"
+    )
+    assert repr(person) == expected

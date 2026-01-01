@@ -1343,8 +1343,8 @@ for item_result in items_result:
 **Aggregated Access** (statistics across all items):
 
 ```python
-# Access aggregated statistics for a field across all items
-name_aggregated = result.fields.items.name  # FillRateAggregatedFieldResult
+# Recommended: Use aggregated_fields for clarity
+name_aggregated = result.fields.items.aggregated_fields.name  # FillRateAggregatedFieldResult
 print(name_aggregated.values)  # [1.0, 1.0] - fill rate for name in each item
 print(name_aggregated.mean())  # 1.0 - mean fill rate for name across items
 print(name_aggregated.max())   # 1.0
@@ -1353,9 +1353,12 @@ print(name_aggregated.std())   # 0.0
 print(name_aggregated.var())   # 0.0
 print(name_aggregated.quantile(0.5))  # 1.0
 
-price_aggregated = result.fields.items.price
+price_aggregated = result.fields.items.aggregated_fields.price
 print(price_aggregated.values)  # [1.0, 0.0]
 print(price_aggregated.mean())  # 0.5
+
+# Note: Direct access via items.name still works for backward compatibility
+# but aggregated_fields is the recommended API
 ```
 
 **Nested Models in Lists**:
@@ -1381,11 +1384,13 @@ order = Order.from_dict({
 
 result = order.compute_fill_rate()
 
-# Access nested model through aggregated
-address_aggregated = result.fields.items.address  # FillRateAggregatedModelResult
-city_aggregated = address_aggregated.city  # FillRateAggregatedFieldResult
+# Access nested model through aggregated (recommended API)
+address_aggregated = result.fields.items.aggregated_fields.address  # FillRateAggregatedModelResult
+city_aggregated = address_aggregated.aggregated_fields.city  # FillRateAggregatedFieldResult
 print(city_aggregated.values)  # [1.0, 1.0]
-print(address_aggregated.street.values)  # [1.0, 0.0]
+print(address_aggregated.aggregated_fields.street.values)  # [1.0, 0.0]
+
+# Note: Direct access via items.address still works for backward compatibility
 ```
 
 **Empty or Missing Lists**:
@@ -1605,9 +1610,11 @@ print(len(result.fields.items))  # 2
 print(result.fields.items[0].fields.name.value)   # 1.0
 print(result.fields.items[0].fields.price.value)  # 1.0
 
-# Aggregated access works too
-print(result.fields.items.name.values)   # [1.0, 1.0]
-print(result.fields.items.price.values)  # [1.0, 1.0]
+# Aggregated access works too (recommended API)
+print(result.fields.items.aggregated_fields.name.values)   # [1.0, 1.0]
+print(result.fields.items.aggregated_fields.price.values)  # [1.0, 1.0]
+
+# Note: Direct access via items.name still works for backward compatibility
 ```
 
 **Different List Lengths**:
@@ -1901,6 +1908,58 @@ if user.fields.age.value is MissingValue:
 - **`fields`** (property): Returns a `FieldCollection` containing all fields
 - **`__init__(**kwargs)`**: Initialize the model with field values
 - **`from_dict(data: dict[str, Any])`** (classmethod): Create a model instance from a dictionary
+- **`__repr__()`**: Returns a string representation of the model (similar to Pydantic)
+
+#### String Representation
+
+BaseModel instances have a `__repr__` method that provides a readable string representation:
+
+```python
+class Address(BaseModel):
+    city: str
+    zip: str
+
+class Person(BaseModel):
+    name: str
+    age: int
+    address: Address
+
+person = Person.from_dict({
+    "name": "John",
+    "age": 30,
+    "address": {"city": "NYC", "zip": "10001"},
+})
+
+print(repr(person))
+# Output: Person(name='John', age=30, address=Address(city='NYC', zip='10001'))
+```
+
+Missing fields are displayed as `MISSING`:
+
+```python
+person = Person(name="John")
+print(repr(person))
+# Output: Person(name='John', age=MISSING, address=MISSING)
+```
+
+Lists are properly represented:
+
+```python
+class Item(BaseModel):
+    name: str
+
+class Order(BaseModel):
+    items: list[Item]
+
+order = Order.from_dict({
+    "items": [
+        {"name": "Apple"},
+        {"name": "Banana"},
+    ],
+})
+print(repr(order))
+# Output: Order(items=[Item(name='Apple'), Item(name='Banana')])
+```
 
 ### Field
 

@@ -1029,6 +1029,35 @@ class BaseModel:
         """
         return self.fields[path]
 
+    def __repr__(self) -> str:
+        """
+        Return a string representation of the BaseModel instance.
+
+        Format: ClassName(field1=value1, field2=MISSING, ...)
+        Similar to Pydantic's representation style.
+
+        Returns:
+            String representation of the model.
+        """
+        parts: list[str] = []
+        for name, field in self._fields.items():
+            if isinstance(field, BaseModel):
+                parts.append(f"{name}={field!r}")
+            elif field.value is MissingValue:
+                parts.append(f"{name}=MISSING")
+            elif isinstance(field.value, list):
+                # Handle lists of BaseModel or primitives
+                items_repr: list[str] = []
+                for item in field.value:
+                    if isinstance(item, BaseModel):
+                        items_repr.append(repr(item))
+                    else:
+                        items_repr.append(repr(item))
+                parts.append(f"{name}=[{', '.join(items_repr)}]")
+            else:
+                parts.append(f"{name}={field.value!r}")
+        return f"{self.__class__.__name__}({', '.join(parts)})"
+
     def __setattr__(self, name: str, value: t.Any) -> None:
         """
         Prevent setting attributes after initialization.

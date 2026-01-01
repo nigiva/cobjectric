@@ -356,7 +356,7 @@ def test_path_access_field_collection_direct_list_index() -> None:
     person = Person(name="John")
 
     # Direct list index access without field name should fail
-    with pytest.raises(KeyError, match="Cannot use index on non-list"):
+    with pytest.raises(KeyError, match="Path cannot start with an index"):
         _ = person.fields._resolve_path(["[0]"])
 
 

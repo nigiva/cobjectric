@@ -1426,6 +1426,14 @@ def test_fill_rate_list_aggregated_field_access() -> None:
     assert isinstance(result.fields.items.name, FillRateAggregatedFieldResult)
     assert isinstance(result.fields.items.price, FillRateAggregatedFieldResult)
 
+    # Test aggregated_fields API (recommended)
+    assert isinstance(
+        result.fields.items.aggregated_fields.name, FillRateAggregatedFieldResult
+    )
+    assert isinstance(
+        result.fields.items.aggregated_fields.price, FillRateAggregatedFieldResult
+    )
+
 
 def test_fill_rate_list_aggregated_values() -> None:
     """Test that aggregated field provides values list."""
@@ -1598,6 +1606,18 @@ def test_fill_rate_list_aggregated_nested_model() -> None:
     assert isinstance(result.fields.items.address.city, FillRateAggregatedFieldResult)
     assert result.fields.items.address.city.values == [1.0, 1.0]
     assert result.fields.items.address.street.values == [1.0, 0.0]
+
+    # Test aggregated_fields API (recommended)
+    assert isinstance(
+        result.fields.items.aggregated_fields.address, FillRateAggregatedModelResult
+    )
+    # FillRateAggregatedModelResult uses __getattr__ directly, not aggregated_fields
+    assert isinstance(
+        result.fields.items.aggregated_fields.address.city,
+        FillRateAggregatedFieldResult,
+    )
+    assert result.fields.items.aggregated_fields.address.city.values == [1.0, 1.0]
+    assert result.fields.items.aggregated_fields.address.street.values == [1.0, 0.0]
 
 
 def test_fill_rate_list_aggregated_zero_weight() -> None:
@@ -2541,13 +2561,13 @@ def test_field_collection_cannot_index_on_primitive_in_list():
     )
 
     # Access data[0][0][0] - data[0][0] is "hello" (a string), not a list
-    # Trying to index [0] on a string should fail with line 186
+    # Trying to index [0] on a string should fail
     raised = False
     try:
         _ = container["data[0][0][0]"]
     except KeyError as e:
         raised = True
-        assert "Cannot use index on non-list field" in str(e)
+        assert "Cannot use index on non-list element" in str(e)
     assert raised, "Expected KeyError for indexing string"
 
 

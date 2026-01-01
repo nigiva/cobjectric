@@ -779,6 +779,57 @@ class FillRateAggregatedModelResult:
         return f"FillRateAggregatedModelResult(items={len(self._items)})"
 
 
+class FillRateListAggregatedProxy:
+    """
+    Proxy for aggregated field access on a list of fill rate results.
+
+    Provides access to aggregated field results across all items
+    in the list.
+    """
+
+    def __init__(self, items: list[FillRateModelResult]) -> None:
+        """
+        Initialize the proxy.
+
+        Args:
+            items: List of FillRateModelResult instances.
+        """
+        self._items = items
+
+    def __getattr__(
+        self, name: str
+    ) -> FillRateAggregatedFieldResult | FillRateAggregatedModelResult:
+        """
+        Get aggregated result for a field name across all items.
+
+        Args:
+            name: The field name.
+
+        Returns:
+            FillRateAggregatedFieldResult or FillRateAggregatedModelResult.
+        """
+        values: list[float] = []
+        weights: list[float] = []
+        nested_items: list[FillRateModelResult] = []
+
+        for item in self._items:
+            if name in item._fields:
+                field = item._fields[name]
+                if isinstance(field, FillRateFieldResult):
+                    values.append(field.value)
+                    weights.append(field.weight)
+                elif isinstance(field, FillRateModelResult):
+                    nested_items.append(field)
+                elif isinstance(field, FillRateListResult):
+                    # Nested list - aggregate mean of each list
+                    values.append(field.mean())
+                    weights.append(field.weight)
+
+        if nested_items:
+            return FillRateAggregatedModelResult(_items=nested_items)
+        return FillRateAggregatedFieldResult(_values=values, _weights=weights)
+
+
 @dataclass
 class FillRateListResult:
     """
@@ -787,6 +838,8 @@ class FillRateListResult:
     Provides two access modes:
     - By index: items[0] -> FillRateModelResult
     - Aggregated: items.name -> FillRateAggregatedFieldResult
+    - Aggregated (recommended): items.aggregated_fields.name ->
+        FillRateAggregatedFieldResult
     """
 
     _items: list[FillRateModelResult]
@@ -814,6 +867,16 @@ class FillRateListResult:
     def __iter__(self) -> t.Iterator[FillRateModelResult]:
         """Iterate over all items."""
         return iter(self._items)
+
+    @property
+    def aggregated_fields(self) -> FillRateListAggregatedProxy:
+        """
+        Get aggregated fields proxy for accessing fields across all items.
+
+        Returns:
+            FillRateListAggregatedProxy instance.
+        """
+        return FillRateListAggregatedProxy(self._items)
 
     def __getattr__(
         self, name: str
