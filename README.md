@@ -14,15 +14,19 @@
 
 Cobjectric is a library designed to help developers calculate metrics on complex objects such as JSON, dictionaries, and arrays. It was originally created for Machine Learning projects where comparing and evaluating generated JSON structures against ground truth data was a repetitive manual task.
 
-## 📚 Usage
+## 📚 Installation
 
 ```bash
 pip install cobjectric
 ```
 
-### Quick Example
+## 🚀 Core Features
 
-Cobjectric allows you to define typed models and compute **fill rate** metrics to measure data completeness:
+Cobjectric provides **three main functionalities** for analyzing complex structured data:
+
+### 1. Fill Rate - Measure Data Completeness
+
+Compute how "complete" your data is by measuring which fields are filled vs missing.
 
 ```python
 from cobjectric import BaseModel, Spec
@@ -32,40 +36,76 @@ class Person(BaseModel):
     age: int
     email: str
 
-# Create from dictionary
 person = Person.from_dict({
     "name": "John Doe",
     "age": 30,
     "email": "john.doe@example.com",
 })
 
-# Compute fill rate (scoring)
 result = person.compute_fill_rate()
-
-print(result.fields.name.value)   # 0.08 (len("John Doe") = 8, 8/100)
+print(result.fields.name.value)   # 0.08 (custom: len/100)
 print(result.fields.age.value)    # 1.0 (present)
 print(result.fields.email.value)  # 1.0 (present)
-print(result.mean())              # 0.693... (average fill rate)
+print(result.mean())              # 0.693... (weighted average)
 ```
 
-Fill rate measures how "complete" each field is (0.0 = missing, 1.0 = present). You can define custom fill rate functions or use the default (0.0 for missing, 1.0 for present).
+**Use cases**: Data quality assessment, completeness scoring, field-level statistics.
 
-See the [documentation](docs/base_model.md) for more details on nested models, list fields, normalizers, and advanced features.
+### 2. Fill Rate Accuracy - Compare Completeness
 
-### Features
+Compare the completeness of two models (got vs expected) to measure accuracy of data filling.
 
-- **Fill Rate Scoring**: Compute completeness metrics (fill rate) for all fields with statistical aggregation
-- **Fill Rate Accuracy**: Compare field completeness between two models (got vs expected)
-- **Similarity**: Compare field values between two models with customizable similarity functions (exact, fuzzy, numeric)
-- **Typed Models**: Define models with type annotations and automatic validation
-- **Nested Models**: Support for nested model structures with recursive computation
-- **List Fields**: Full support for `list[BaseModel]` with index-based and aggregated access
-- **List Comparison Strategies**: Pairwise, Levenshtein (order-preserving), and Optimal Assignment (Hungarian algorithm) for comparing lists
-- **Path Access**: Access fields using path notation like `result["address.city"]` or `result["items[0].name"]`
-- **Field Normalizers**: Transform field values before validation
-- **Flexible Types**: Support for optional fields, union types, typed dicts, and lists
+```python
+got = Person.from_dict({"name": "John", "age": 30})  # email missing
+expected = Person.from_dict({"name": "John", "age": 30, "email": "john@example.com"})
 
-For complete feature list and details, see the [documentation](docs/base_model.md).
+accuracy = got.compute_fill_rate_accuracy(expected)
+print(accuracy.fields.email.value)  # 0.0 (got missing, expected present)
+print(accuracy.mean())               # 0.667 (2/3 fields match state)
+```
+
+**Use cases**: Validation pipelines, comparing generated vs expected data structures, quality control.
+
+### 3. Similarity - Compare Values with Fuzzy Matching
+
+Compare field values between two models with support for **fuzzy text matching** via `rapidfuzz` and intelligent list alignment strategies.
+
+```python
+from cobjectric import BaseModel, Spec, ListCompareStrategy
+from cobjectric.similarities import fuzzy_similarity_factory
+
+class Person(BaseModel):
+    name: str = Spec(similarity_func=fuzzy_similarity_factory("WRatio"))
+    tags: list[Tag] = Spec(list_compare_strategy=ListCompareStrategy.OPTIMAL_ASSIGNMENT)
+
+got = Person.from_dict({"name": "John Doe", "tags": [...]})
+expected = Person.from_dict({"name": "john doe", "tags": [...]})
+
+similarity = got.compute_similarity(expected)
+print(similarity.fields.name.value)  # 0.99 (fuzzy match despite case difference)
+print(similarity.fields.tags.mean()) # Uses optimal assignment for best matching
+```
+
+**Key features**:
+- **Fuzzy text matching** via `rapidfuzz`: handles typos, case differences, word order
+- **List alignment strategies**:
+  - `PAIRWISE`: Compare by index (default)
+  - `LEVENSHTEIN`: Order-preserving alignment based on similarity
+  - `OPTIMAL_ASSIGNMENT`: Hungarian algorithm for best one-to-one matching
+- **Numeric similarity**: Gradual similarity based on difference thresholds
+
+**Use cases**: ML model evaluation, fuzzy matching, comparing generated text with ground truth, list item matching.
+
+### Additional Features
+
+- **Statistical Aggregation**: `mean()`, `std()`, `var()`, `min()`, `max()`, `quantile()` on all results
+- **Nested Models**: Recursive computation on complex structures
+- **List Aggregation**: Access aggregated statistics across list items via `items.aggregated_fields.name.mean()`
+- **Path Access**: `result["address.city"]` or `result["items[0].name"]`
+- **Custom Functions**: Define your own fill rate, accuracy, or similarity functions per field
+- **Field Normalizers**: Transform values before validation
+
+See the [documentation](docs/base_model.md) for complete details.
 
 ### Documentation
 

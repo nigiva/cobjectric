@@ -4,7 +4,9 @@ import typing as t
 from dataclasses import dataclass
 
 from cobjectric.exceptions import InvalidAggregatedFieldError, InvalidWeightError
+from cobjectric.path import parse_path
 from cobjectric.sentinel import MissingValue
+from cobjectric.stats import StatsMixin
 
 FillRateFunc = t.Callable[[t.Any], float]
 
@@ -331,50 +333,8 @@ class FillRateFieldCollection:
         Raises:
             KeyError: If the path is invalid.
         """
-        segments = self._parse_path(path)
+        segments = parse_path(path)
         return self._resolve_path(segments)
-
-    def _parse_path(self, path: str) -> list[str]:
-        """
-        Parse a path string into segments.
-
-        Args:
-            path: Path string (e.g., "address.city", "items[0].name").
-
-        Returns:
-            List of path segments.
-        """
-        segments: list[str] = []
-        current = ""
-        i = 0
-        while i < len(path):
-            if path[i] == ".":
-                if current:
-                    segments.append(current)
-                    current = ""
-            elif path[i] == "[":
-                if current:
-                    segments.append(current)
-                    current = ""
-                # Find closing bracket
-                j = i + 1
-                while j < len(path) and path[j] != "]":
-                    j += 1
-                if j >= len(path):
-                    raise KeyError(f"Invalid path: {path}")
-                index_str = path[i + 1 : j]
-                try:
-                    index = int(index_str)
-                    segments.append(f"[{index}]")
-                except ValueError as e:
-                    raise KeyError(f"Invalid path: {path}") from e
-                i = j
-            else:
-                current += path[i]
-            i += 1
-        if current:
-            segments.append(current)
-        return segments
 
     def _resolve_path(
         self, segments: list[str]
@@ -461,7 +421,7 @@ class FillRateFieldCollection:
 
 
 @dataclass
-class FillRateModelResult:
+class FillRateModelResult(StatsMixin):
     """
     Result of fill rate computation for a model instance.
 
@@ -471,6 +431,16 @@ class FillRateModelResult:
     """
 
     _fields: dict[str, FillRateFieldResult | FillRateModelResult | FillRateListResult]
+
+    def _get_values(self) -> list[float]:
+        """Get all values for statistical computation."""
+        return self._collect_all_values()
+
+    def _get_values_and_weights(
+        self,
+    ) -> tuple[list[float], list[float]]:
+        """Get all values and weights for weighted statistical computation."""
+        return self._collect_all_values_and_weights()
 
     @property
     def fields(self) -> FillRateFieldCollection:
@@ -545,115 +515,6 @@ class FillRateModelResult:
                 weights.append(field_result.weight)
         return values, weights
 
-    def mean(self) -> float:
-        """
-        Calculate the weighted mean fill rate across all fields.
-
-        Returns:
-            The weighted mean fill rate (float between 0.0 and 1.0).
-            Formula: sum(value * weight) / sum(weight)
-        """
-        values, weights = self._collect_all_values_and_weights()
-        if not values:
-            return 0.0
-        total_weight = sum(weights)
-        if total_weight == 0.0:
-            return 0.0
-        return sum(v * w for v, w in zip(values, weights, strict=True)) / total_weight
-
-    def max(self) -> float:
-        """
-        Get the maximum fill rate across all fields.
-
-        Returns:
-            The maximum fill rate (float between 0.0 and 1.0).
-        """
-        values = self._collect_all_values()
-        if not values:
-            return 0.0
-        return max(values)
-
-    def min(self) -> float:
-        """
-        Get the minimum fill rate across all fields.
-
-        Returns:
-            The minimum fill rate (float between 0.0 and 1.0).
-        """
-        values = self._collect_all_values()
-        if not values:
-            return 0.0
-        return min(values)
-
-    def std(self) -> float:
-        """
-        Calculate the standard deviation of fill rates across all fields.
-
-        Returns:
-            The standard deviation (float >= 0.0).
-        """
-        values = self._collect_all_values()
-        if not values:
-            return 0.0
-        if len(values) == 1:
-            return 0.0
-        mean_val = self.mean()
-        variance = sum((x - mean_val) ** 2 for x in values) / len(values)
-        return variance**0.5
-
-    def var(self) -> float:
-        """
-        Calculate the variance of fill rates across all fields.
-
-        Returns:
-            The variance (float >= 0.0).
-        """
-        values = self._collect_all_values()
-        if not values:
-            return 0.0
-        if len(values) == 1:
-            return 0.0
-        mean_val = self.mean()
-        return sum((x - mean_val) ** 2 for x in values) / len(values)
-
-    def quantile(self, q: float) -> float:
-        """
-        Calculate the quantile of fill rates across all fields.
-
-        Args:
-            q: The quantile to compute (float between 0.0 and 1.0).
-
-        Returns:
-            The quantile value (float between 0.0 and 1.0).
-
-        Raises:
-            ValueError: If q is not in [0, 1].
-        """
-        if not 0.0 <= q <= 1.0:
-            raise ValueError(f"Quantile q must be between 0.0 and 1.0, got {q}")
-
-        values = self._collect_all_values()
-        if not values:
-            return 0.0
-
-        sorted_values = sorted(values)
-        n = len(sorted_values)
-
-        if q == 0.0:
-            return sorted_values[0]
-        if q == 1.0:
-            return sorted_values[-1]
-
-        index = q * (n - 1)
-        lower_index = int(index)
-        upper_index = min(lower_index + 1, n - 1)
-        weight = index - lower_index
-
-        return (
-            sorted_values[lower_index] * (1 - weight)
-            + sorted_values[upper_index] * weight
-        )
-
     def __repr__(self) -> str:
         """Return a string representation of the FillRateModelResult."""
         fields_repr = ", ".join(
@@ -663,7 +524,7 @@ class FillRateModelResult:
 
 
 @dataclass
-class FillRateAggregatedFieldResult:
+class FillRateAggregatedFieldResult(StatsMixin):
     """
     Aggregated fill rate result for a field across list items.
 
@@ -684,101 +545,15 @@ class FillRateAggregatedFieldResult:
         """
         return self._values
 
-    def mean(self) -> float:
-        """
-        Calculate weighted mean of fill rates.
+    def _get_values(self) -> list[float]:
+        """Get all values for statistical computation."""
+        return self._values
 
-        Returns:
-            Weighted mean fill rate.
-        """
-        if not self._values:
-            return 0.0
-        total_weight = sum(self._weights)
-        if total_weight == 0.0:
-            return 0.0
-        return (
-            sum(v * w for v, w in zip(self._values, self._weights, strict=True))
-            / total_weight
-        )
-
-    def max(self) -> float:
-        """
-        Get maximum fill rate value.
-
-        Returns:
-            Maximum fill rate.
-        """
-        return max(self._values) if self._values else 0.0
-
-    def min(self) -> float:
-        """
-        Get minimum fill rate value.
-
-        Returns:
-            Minimum fill rate.
-        """
-        return min(self._values) if self._values else 0.0
-
-    def std(self) -> float:
-        """
-        Calculate standard deviation of fill rates.
-
-        Returns:
-            Standard deviation.
-        """
-        if len(self._values) <= 1:
-            return 0.0
-        m = self.mean()
-        return (sum((x - m) ** 2 for x in self._values) / len(self._values)) ** 0.5
-
-    def var(self) -> float:
-        """
-        Calculate variance of fill rates.
-
-        Returns:
-            Variance.
-        """
-        if len(self._values) <= 1:
-            return 0.0
-        m = self.mean()
-        return sum((x - m) ** 2 for x in self._values) / len(self._values)
-
-    def quantile(self, q: float) -> float:
-        """
-        Calculate quantile of fill rates.
-
-        Args:
-            q: The quantile to compute (float between 0.0 and 1.0).
-
-        Returns:
-            The quantile value.
-
-        Raises:
-            ValueError: If q is not in [0, 1].
-        """
-        if not 0.0 <= q <= 1.0:
-            raise ValueError(f"Quantile q must be between 0.0 and 1.0, got {q}")
-
-        if not self._values:
-            return 0.0
-
-        sorted_values = sorted(self._values)
-        n = len(sorted_values)
-
-        if q == 0.0:
-            return sorted_values[0]
-        if q == 1.0:
-            return sorted_values[-1]
-
-        index = q * (n - 1)
-        lower_index = int(index)
-        upper_index = min(lower_index + 1, n - 1)
-        weight = index - lower_index
-
-        return (
-            sorted_values[lower_index] * (1 - weight)
-            + sorted_values[upper_index] * weight
-        )
+    def _get_values_and_weights(
+        self,
+    ) -> tuple[list[float], list[float]]:
+        """Get all values and weights for weighted statistical computation."""
+        return self._values, self._weights
 
     def __repr__(self) -> str:
         """Return a string representation."""
@@ -786,7 +561,7 @@ class FillRateAggregatedFieldResult:
 
 
 @dataclass
-class FillRateAggregatedModelResult:
+class FillRateAggregatedModelResult(StatsMixin):
     """
     Aggregated result for a nested model field across list items.
 
@@ -802,6 +577,22 @@ class FillRateAggregatedModelResult:
     """
 
     _items: list[FillRateModelResult]
+
+    def _get_values(self) -> list[float]:
+        """Get all values for statistical computation (mean of each item)."""
+        return [item.mean() for item in self._items]
+
+    def _get_values_and_weights(
+        self,
+    ) -> tuple[list[float], list[float]]:
+        """
+        Get all values and weights for weighted statistical computation.
+
+        For aggregated model results, we use equal weights (1.0) for each item.
+        """
+        values = self._get_values()
+        weights = [1.0] * len(values)
+        return values, weights
 
     def __getattr__(
         self, name: str
@@ -853,65 +644,6 @@ class FillRateAggregatedModelResult:
         if nested_items:
             return FillRateAggregatedModelResult(_items=nested_items)
         return FillRateAggregatedFieldResult(_values=values, _weights=weights)
-
-    def mean(self) -> float:
-        """
-        Calculate mean fill rate across all items.
-
-        Returns:
-            Mean fill rate.
-        """
-        if not self._items:
-            return 0.0
-        return sum(item.mean() for item in self._items) / len(self._items)
-
-    def max(self) -> float:
-        """
-        Get maximum fill rate across all items.
-
-        Returns:
-            Maximum fill rate.
-        """
-        if not self._items:
-            return 0.0
-        return max(item.mean() for item in self._items)
-
-    def min(self) -> float:
-        """
-        Get minimum fill rate across all items.
-
-        Returns:
-            Minimum fill rate.
-        """
-        if not self._items:
-            return 0.0
-        return min(item.mean() for item in self._items)
-
-    def std(self) -> float:
-        """
-        Calculate standard deviation of fill rates across items.
-
-        Returns:
-            Standard deviation.
-        """
-        if len(self._items) <= 1:
-            return 0.0
-        means = [item.mean() for item in self._items]
-        m = self.mean()
-        return (sum((x - m) ** 2 for x in means) / len(means)) ** 0.5
-
-    def var(self) -> float:
-        """
-        Calculate variance of fill rates across items.
-
-        Returns:
-            Variance.
-        """
-        if len(self._items) <= 1:
-            return 0.0
-        means = [item.mean() for item in self._items]
-        m = self.mean()
-        return sum((x - m) ** 2 for x in means) / len(means)
 
     def __repr__(self) -> str:
         """Return a string representation."""
@@ -1248,7 +980,7 @@ class FillRateAggregatedFieldCollection:
 
 
 @dataclass
-class FillRateListResult:
+class FillRateListResult(StatsMixin):
     """
     Result for a list[BaseModel] field.
 
@@ -1261,6 +993,16 @@ class FillRateListResult:
     _items: list[FillRateModelResult]
     weight: float = 1.0
     _element_type: type | None = None
+
+    def _get_values(self) -> list[float]:
+        """Get all values for statistical computation."""
+        return self._collect_all_values()
+
+    def _get_values_and_weights(
+        self,
+    ) -> tuple[list[float], list[float]]:
+        """Get all values and weights for weighted statistical computation."""
+        return self._collect_all_values_and_weights()
 
     def __getitem__(self, index: int) -> FillRateModelResult:
         """
@@ -1304,31 +1046,6 @@ class FillRateListResult:
             Mean fill rate.
         """
         return self.mean()
-
-    def mean(self) -> float:
-        """
-        Calculate weighted mean fill rate across all items.
-
-        Returns:
-            Weighted mean fill rate.
-        """
-        if not self._items:
-            return 0.0
-        all_values: list[float] = []
-        all_weights: list[float] = []
-        for item in self._items:
-            v, w = item._collect_all_values_and_weights()
-            all_values.extend(v)
-            all_weights.extend(w)
-        if not all_values:
-            return 0.0
-        total_weight = sum(all_weights)
-        if total_weight == 0.0:
-            return 0.0
-        return (
-            sum(v * w for v, w in zip(all_values, all_weights, strict=True))
-            / total_weight
-        )
 
     def _collect_all_values(self) -> list[float]:
         """
