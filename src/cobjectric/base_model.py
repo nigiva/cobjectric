@@ -7,6 +7,7 @@ import typing as t
 from cobjectric.exceptions import (
     DuplicateFillRateAccuracyFuncError,
     DuplicateFillRateFuncError,
+    DuplicateSimilarityFuncError,
     InvalidFillRateValueError,
     MissingListTypeArgError,
     UnsupportedListTypeError,
@@ -23,6 +24,8 @@ from cobjectric.fill_rate import (
     FillRateFuncInfo,
     FillRateListResult,
     FillRateModelResult,
+    SimilarityFunc,
+    SimilarityFuncInfo,
 )
 from cobjectric.sentinel import MissingValue
 
@@ -488,6 +491,34 @@ class BaseModel:
                                 fill_rate_accuracy_funcs[field_name].append(info)
         return fill_rate_accuracy_funcs
 
+    @classmethod
+    def _collect_similarity_funcs(
+        cls,
+    ) -> dict[str, list[SimilarityFuncInfo]]:
+        """
+        Collect all @similarity_func decorated methods for each field.
+
+        Returns:
+            Dict mapping field_name to list of SimilarityFuncInfo
+        """
+        similarity_funcs: dict[str, list[SimilarityFuncInfo]] = {}
+        annotations = getattr(cls, "__annotations__", {})
+        field_names = [n for n in annotations if not n.startswith("_")]
+
+        # Use __dict__ to preserve declaration order
+        for attr_name, attr_value in cls.__dict__.items():
+            if attr_name.startswith("_"):
+                continue
+            if callable(attr_value) and hasattr(attr_value, "_similarity_funcs"):
+                for info in attr_value._similarity_funcs:
+                    for pattern in info.field_patterns:
+                        for field_name in field_names:
+                            if fnmatch.fnmatch(field_name, pattern):
+                                if field_name not in similarity_funcs:
+                                    similarity_funcs[field_name] = []
+                                similarity_funcs[field_name].append(info)
+        return similarity_funcs
+
     @staticmethod
     def _default_fill_rate_func(value: t.Any) -> float:
         """
@@ -516,6 +547,20 @@ class BaseModel:
         got_filled = got is not MissingValue
         expected_filled = expected is not MissingValue
         return 1.0 if got_filled == expected_filled else 0.0
+
+    @staticmethod
+    def _default_similarity_func(got: t.Any, expected: t.Any) -> float:
+        """
+        Default similarity_func: returns 1.0 if values are equal, else 0.0.
+
+        Args:
+            got: The field value from the model being evaluated.
+            expected: The field value from the expected model.
+
+        Returns:
+            float: 1.0 if got == expected, 0.0 otherwise.
+        """
+        return 1.0 if got == expected else 0.0
 
     @staticmethod
     def _validate_fill_rate_value(field_name: str, value: t.Any) -> float:
@@ -916,6 +961,245 @@ class BaseModel:
                 )
                 validated_value = self._validate_fill_rate_value(
                     field_name, accuracy_value
+                )
+                result_fields[field_name] = FillRateFieldResult(
+                    value=validated_value, weight=weight_to_use
+                )
+
+        return FillRateModelResult(_fields=result_fields)
+
+    def compute_similarity(self, expected: BaseModel) -> FillRateModelResult:
+        """
+        Compute similarity for all fields compared to expected model.
+
+        Args:
+            expected: The expected model to compare against (same type).
+
+        Returns:
+            FillRateModelResult containing similarity scores for all fields.
+            Uses similarity_weight for weighted mean.
+
+        Raises:
+            DuplicateSimilarityFuncError: If multiple similarity_func are defined
+                for the same field.
+            InvalidFillRateValueError: If a similarity_func returns an invalid value.
+        """
+        # Collect decorator similarity_funcs once per class
+        decorator_similarity_funcs = self._collect_similarity_funcs()
+
+        result_fields: dict[
+            str, FillRateFieldResult | FillRateModelResult | FillRateListResult
+        ] = {}
+
+        for field_name, field in self._fields.items():
+            # Get corresponding field from expected model
+            expected_field = expected._fields.get(field_name)
+            if expected_field is None:
+                # Field doesn't exist in expected, treat as MissingValue
+                expected_value: t.Any = MissingValue
+            elif isinstance(expected_field, BaseModel):
+                expected_value = expected_field
+            else:
+                expected_value = expected_field.value
+
+            # Get FieldSpec
+            if isinstance(field, Field):
+                spec = field.spec
+            else:
+                # Nested model - use default spec
+                spec = FieldSpec()
+
+            # Check for duplicates
+            spec_func = spec.similarity_func
+            decorator_funcs = decorator_similarity_funcs.get(field_name, [])
+
+            if spec_func and decorator_funcs:
+                raise DuplicateSimilarityFuncError(field_name)
+
+            if len(decorator_funcs) > 1:
+                raise DuplicateSimilarityFuncError(field_name)
+
+            # Get the similarity_func to use
+            similarity_func_to_use: SimilarityFunc | None = None
+            if spec_func:
+                similarity_func_to_use = spec_func
+            elif decorator_funcs:
+                similarity_func_to_use = decorator_funcs[0].func
+            else:
+                similarity_func_to_use = self._default_similarity_func
+
+            # Get the weight to use (decorator > Spec > default 1.0)
+            weight_to_use: float = 1.0
+            if decorator_funcs:
+                # Decorator weight takes precedence
+                weight_to_use = decorator_funcs[0].weight
+            elif spec.similarity_weight != 1.0:
+                # Use Spec weight if different from default
+                weight_to_use = spec.similarity_weight
+
+            # Check if this is a nested model
+            if isinstance(field, BaseModel):
+                # Recursively compute similarity for nested model
+                if isinstance(expected_value, BaseModel):
+                    nested_result = field.compute_similarity(expected_value)
+                else:
+                    # Expected is MissingValue, create empty result
+                    nested_annotations = getattr(field.__class__, "__annotations__", {})
+                    nested_fields_expected_missing: dict[
+                        str,
+                        FillRateFieldResult | FillRateModelResult | FillRateListResult,
+                    ] = {}
+                    for nested_field_name in nested_annotations:
+                        if nested_field_name.startswith("_"):
+                            continue
+                        nested_fields_expected_missing[nested_field_name] = (
+                            FillRateFieldResult(value=0.0, weight=1.0)
+                        )
+                    nested_result = FillRateModelResult(
+                        _fields=nested_fields_expected_missing
+                    )
+                result_fields[field_name] = nested_result
+                continue
+
+            # Check if this field is a list type
+            if isinstance(field, Field) and self._is_list_type(field.type):
+                element_type = self._get_list_element_type(field.type)
+
+                if self._is_base_model_type(element_type):
+                    # list[BaseModel] → FillRateListResult
+                    got_list = field.value if field.value is not MissingValue else []
+                    expected_list = (
+                        expected_value
+                        if expected_value is not MissingValue
+                        and isinstance(expected_value, list)
+                        else []
+                    )
+
+                    # Compare item by item - only compare items that exist in both
+                    items_results = []
+                    min_len = min(len(got_list), len(expected_list))
+                    for i in range(min_len):
+                        got_item = got_list[i]
+                        expected_item = expected_list[i]
+
+                        # Both present - recursively compute
+                        if isinstance(got_item, BaseModel) and isinstance(
+                            expected_item, BaseModel
+                        ):
+                            item_result = got_item.compute_similarity(expected_item)
+                            items_results.append(item_result)
+                        else:
+                            # Type mismatch - create empty result
+                            nested_annotations = getattr(
+                                element_type, "__annotations__", {}
+                            )
+                            empty_fields: dict[
+                                str,
+                                FillRateFieldResult
+                                | FillRateModelResult
+                                | FillRateListResult,
+                            ] = {}
+                            for nested_field_name in nested_annotations:
+                                if nested_field_name.startswith("_"):
+                                    continue
+                                empty_fields[nested_field_name] = FillRateFieldResult(
+                                    value=0.0, weight=1.0
+                                )
+                            items_results.append(
+                                FillRateModelResult(_fields=empty_fields)
+                            )
+
+                    result_fields[field_name] = FillRateListResult(
+                        _items=items_results,
+                        weight=weight_to_use,
+                        _element_type=element_type,
+                    )
+                else:
+                    # list[Primitive] → FillRateFieldResult
+                    similarity_value = similarity_func_to_use(
+                        field.value, expected_value
+                    )
+                    validated_value = self._validate_fill_rate_value(
+                        field_name, similarity_value
+                    )
+                    result_fields[field_name] = FillRateFieldResult(
+                        value=validated_value, weight=weight_to_use
+                    )
+                continue
+
+            # Check if this field is a nested model type but MissingValue
+            is_nested_model_type = self._is_base_model_type(field.type)
+            if is_nested_model_type:
+                if field.value is MissingValue and expected_value is MissingValue:
+                    # Both missing - create result with similarity = 1.0
+                    nested_model_class = field.type
+                    nested_annotations = getattr(
+                        nested_model_class, "__annotations__", {}
+                    )
+                    nested_fields_both_missing: dict[
+                        str,
+                        FillRateFieldResult | FillRateModelResult | FillRateListResult,
+                    ] = {}
+                    # Both missing -> similarity = 1.0 for all nested fields
+                    for nested_field_name in nested_annotations:
+                        if nested_field_name.startswith("_"):
+                            continue
+                        nested_fields_both_missing[nested_field_name] = (
+                            FillRateFieldResult(value=1.0, weight=1.0)
+                        )
+                    result_fields[field_name] = FillRateModelResult(
+                        _fields=nested_fields_both_missing
+                    )
+                elif field.value is MissingValue or expected_value is MissingValue:
+                    # One missing -> similarity = 0.0 for all nested fields
+                    nested_model_class = field.type
+                    nested_annotations = getattr(
+                        nested_model_class, "__annotations__", {}
+                    )
+                    nested_fields_one_missing: dict[
+                        str,
+                        FillRateFieldResult | FillRateModelResult | FillRateListResult,
+                    ] = {}
+                    for nested_field_name in nested_annotations:
+                        if nested_field_name.startswith("_"):
+                            continue
+                        nested_fields_one_missing[nested_field_name] = (
+                            FillRateFieldResult(value=0.0, weight=1.0)
+                        )
+                    result_fields[field_name] = FillRateModelResult(
+                        _fields=nested_fields_one_missing
+                    )
+                else:
+                    # Both present - recursively compute
+                    got_nested = field.value
+                    expected_nested = expected_value
+                    if isinstance(expected_nested, BaseModel):
+                        nested_result = got_nested.compute_similarity(expected_nested)
+                    else:
+                        # Expected is not BaseModel, treat as missing
+                        nested_annotations = getattr(field.type, "__annotations__", {})
+                        nested_fields_not_basemodel: dict[
+                            str,
+                            FillRateFieldResult
+                            | FillRateModelResult
+                            | FillRateListResult,
+                        ] = {}
+                        for nested_field_name in nested_annotations:
+                            if nested_field_name.startswith("_"):
+                                continue
+                            nested_fields_not_basemodel[nested_field_name] = (
+                                FillRateFieldResult(value=0.0, weight=1.0)
+                            )
+                        nested_result = FillRateModelResult(
+                            _fields=nested_fields_not_basemodel
+                        )
+                    result_fields[field_name] = nested_result
+            else:
+                # Compute similarity for this field
+                got_value = field.value
+                similarity_value = similarity_func_to_use(got_value, expected_value)
+                validated_value = self._validate_fill_rate_value(
+                    field_name, similarity_value
                 )
                 result_fields[field_name] = FillRateFieldResult(
                     value=validated_value, weight=weight_to_use

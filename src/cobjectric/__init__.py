@@ -5,6 +5,7 @@ from cobjectric.exceptions import (
     CobjectricError,
     DuplicateFillRateAccuracyFuncError,
     DuplicateFillRateFuncError,
+    DuplicateSimilarityFuncError,
     InvalidAggregatedFieldError,
     InvalidFillRateValueError,
     InvalidWeightError,
@@ -23,11 +24,18 @@ from cobjectric.fill_rate import (
     FillRateListResult,
     FillRateModelResult,
     FillRateNestedListAggregatedResult,
+    SimilarityFuncInfo,
     fill_rate_accuracy_func,
     fill_rate_func,
+    similarity_func,
 )
 from cobjectric.normalizer import field_normalizer
 from cobjectric.sentinel import MissingValue
+from cobjectric.similarities import (
+    exact_similarity,
+    fuzzy_similarity_factory,
+    numeric_similarity_factory,
+)
 
 __version__ = version("cobjectric")
 
@@ -40,6 +48,7 @@ __all__ = [
     "UnsupportedTypeError",
     "DuplicateFillRateFuncError",
     "DuplicateFillRateAccuracyFuncError",
+    "DuplicateSimilarityFuncError",
     "InvalidFillRateValueError",
     "InvalidWeightError",
     "InvalidAggregatedFieldError",
@@ -48,13 +57,18 @@ __all__ = [
     "field_normalizer",
     "fill_rate_func",
     "fill_rate_accuracy_func",
+    "similarity_func",
     "FillRateFieldResult",
     "FillRateFuncInfo",
     "FillRateAccuracyFuncInfo",
+    "SimilarityFuncInfo",
     "FillRateModelResult",
     "FillRateListResult",
     "FillRateAggregatedFieldResult",
     "FillRateAggregatedModelResult",
     "FillRateAggregatedFieldCollection",
     "FillRateNestedListAggregatedResult",
+    "exact_similarity",
+    "fuzzy_similarity_factory",
+    "numeric_similarity_factory",
 ]

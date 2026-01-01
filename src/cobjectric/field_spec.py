@@ -2,7 +2,11 @@ import typing as t
 from dataclasses import dataclass, field
 
 from cobjectric.exceptions import InvalidWeightError
-from cobjectric.fill_rate import FillRateAccuracyFunc, FillRateFunc
+from cobjectric.fill_rate import (
+    FillRateAccuracyFunc,
+    FillRateFunc,
+    SimilarityFunc,
+)
 
 Normalizer = t.Callable[[t.Any], t.Any]
 
@@ -19,6 +23,8 @@ class FieldSpec:
     fill_rate_weight: float = 1.0
     fill_rate_accuracy_func: FillRateAccuracyFunc | None = None
     fill_rate_accuracy_weight: float = 1.0
+    similarity_func: SimilarityFunc | None = None
+    similarity_weight: float = 1.0
 
 
 # We use a function instead of directly using FieldSpec because:
@@ -31,6 +37,8 @@ def Spec(  # noqa: N802
     fill_rate_weight: float = 1.0,
     fill_rate_accuracy_func: FillRateAccuracyFunc | None = None,
     fill_rate_accuracy_weight: float = 1.0,
+    similarity_func: SimilarityFunc | None = None,
+    similarity_weight: float = 1.0,
 ) -> t.Any:
     """
     Create a FieldSpec for a field.
@@ -45,6 +53,9 @@ def Spec(  # noqa: N802
             fill rate accuracy function.
         fill_rate_accuracy_weight (float): Weight for fill rate accuracy computation
             (default: 1.0, must be >= 0.0).
+        similarity_func (SimilarityFunc | None): Optional similarity function.
+        similarity_weight (float): Weight for similarity computation
+            (default: 1.0, must be >= 0.0).
 
     Returns:
         Any: A FieldSpec instance (typed as Any for type checker compatibility).
@@ -58,6 +69,8 @@ def Spec(  # noqa: N802
         raise InvalidWeightError(
             fill_rate_accuracy_weight, "Spec", "fill_rate_accuracy"
         )
+    if similarity_weight < 0.0:
+        raise InvalidWeightError(similarity_weight, "Spec", "similarity")
     return FieldSpec(
         metadata=metadata if metadata is not None else {},
         normalizer=normalizer,
@@ -65,4 +78,6 @@ def Spec(  # noqa: N802
         fill_rate_weight=fill_rate_weight,
         fill_rate_accuracy_func=fill_rate_accuracy_func,
         fill_rate_accuracy_weight=fill_rate_accuracy_weight,
+        similarity_func=similarity_func,
+        similarity_weight=similarity_weight,
     )

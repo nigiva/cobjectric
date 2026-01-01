@@ -174,6 +174,30 @@ class DuplicateFillRateAccuracyFuncError(CobjectricError):
         )
 
 
+class DuplicateSimilarityFuncError(CobjectricError):
+    """
+    Exception raised when multiple similarity_func are defined.
+
+    This exception is raised when a field has both a
+    Spec(similarity_func=...) and a @similarity_func decorator,
+    or multiple @similarity_func decorators.
+    """
+
+    def __init__(self, field_name: str) -> None:
+        """
+        Initialize DuplicateSimilarityFuncError.
+
+        Args:
+            field_name: The name of the field with duplicate similarity_func.
+        """
+        self.field_name = field_name
+        super().__init__(
+            f"Multiple similarity_func defined for field '{field_name}'. "
+            "A field can only have one similarity_func (either from Spec() or "
+            "@similarity_func decorator, not both)."
+        )
+
+
 class InvalidAggregatedFieldError(CobjectricError):
     """
     Exception raised when accessing an invalid field in aggregated_fields.

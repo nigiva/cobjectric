@@ -56,8 +56,9 @@ See the [documentation](docs/base_model.md) for more details on nested models, l
 
 - **Fill Rate Scoring**: Compute completeness metrics (fill rate) for all fields with statistical aggregation
 - **Fill Rate Accuracy**: Compare field completeness between two models (got vs expected)
+- **Similarity**: Compare field values between two models with customizable similarity functions (exact, fuzzy, numeric)
 - **Typed Models**: Define models with type annotations and automatic validation
-- **Nested Models**: Support for nested model structures with recursive fill rate computation
+- **Nested Models**: Support for nested model structures with recursive computation
 - **List Fields**: Full support for `list[BaseModel]` with index-based and aggregated access
 - **Path Access**: Access fields using path notation like `result["address.city"]` or `result["items[0].name"]`
 - **Field Normalizers**: Transform field values before validation
