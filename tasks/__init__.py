@@ -5,6 +5,7 @@ Invoke tasks for cobjectric project.
 from invoke import Collection
 
 from tasks.checks import check
+from tasks.docs import docs
 from tasks.format import format_code
 from tasks.precommit import precommit
 from tasks.run import run_all
@@ -19,3 +20,6 @@ ns.add_task(check)
 ns.add_task(test)
 ns.add_task(run_all)
 ns.add_task(precommit)
+
+# Add namespaced collections
+ns.add_collection(docs)

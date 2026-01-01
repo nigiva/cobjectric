@@ -1,0 +1,84 @@
+site_name: Cobjectric Documentation
+site_description: A Python library for computing metrics on complex objects
+site_url: https://cobjectric.nigiva.com
+repo_url: https://github.com/nigiva/cobjectric
+repo_name: nigiva/cobjectric
+
+theme:
+  name: material
+  palette:
+    - scheme: default
+      primary: indigo
+      accent: indigo
+      toggle:
+        icon: material/brightness-7
+        name: Switch to dark mode
+    - scheme: slate
+      primary: indigo
+      accent: indigo
+      toggle:
+        icon: material/brightness-4
+        name: Switch to light mode
+  features:
+    - navigation.tabs
+    - navigation.sections
+    - navigation.expand
+    - navigation.top
+    - search.suggest
+    - search.highlight
+    - content.code.annotate
+    - content.code.copy
+    - content.code.select
+
+markdown_extensions:
+  - pymdownx.highlight:
+      anchor_linenums: true
+  - pymdownx.inlinehilite
+  - pymdownx.snippets
+  - pymdownx.superfences:
+      custom_fences:
+        - name: mermaid
+          class: mermaid
+          format: !!python/name:pymdownx.superfences.fence_code_format
+  - admonition
+  - pymdownx.details
+  - pymdownx.tabbed:
+      alternate_style: true
+  - attr_list
+  - md_in_html
+
+plugins:
+  - search
+  - mkdocstrings:
+      handlers:
+        python:
+          paths: [src]
+          options:
+            docstring_style: google
+            show_source: true
+            show_root_heading: true
+            show_root_toc_entry: true
+            show_root_full_path: false
+            show_object_full_path: false
+            show_category_heading: true
+            show_if_no_docstring: false
+            merge_init_into_class: true
+            show_submodules: true
+
+nav:
+  - Home: index.md
+  - Getting Started:
+    - Quick Start: quickstart.md
+  - Core Concepts:
+    - BaseModel: base_model.md
+    - Field Types: field_types.md
+    - Nested Models: nested_models.md
+  - Advanced Features:
+    - Field Specifications: field_specs.md
+    - Pre-defined Specs: specs.md
+    - Fill Rate: fill_rate.md
+    - Similarity: similarity.md
+    - List Comparison Strategies: list_comparison.md
+    - Path Access: path_access.md
+  - Examples: examples.md
+

@@ -17,14 +17,11 @@ classifiers = [
     "Typing :: Typed",
 ]
 keywords = ["metrics", "json", "comparison", "machine-learning", "evaluation"]
-dependencies = [
-    "rapidfuzz>=3.14.3",
-    "scipy>=1.16.3",
-]
+dependencies = ["rapidfuzz>=3.14.3", "scipy>=1.16.3"]
 
 [project.urls]
 Homepage = "https://github.com/nigiva/cobjectric"
-Documentation = "https://github.com/nigiva/cobjectric#readme"
+Documentation = "https://cobjectric.nigiva.com"
 Repository = "https://github.com/nigiva/cobjectric.git"
 Issues = "https://github.com/nigiva/cobjectric/issues"
 
@@ -41,6 +38,9 @@ dev = [
     "invoke>=2.2.0",
     "rich>=13.9.4",
     "pre-commit>=4.0.1",
+    "mkdocs>=1.6.0",
+    "mkdocs-material>=9.5.0",
+    "mkdocstrings[python]>=0.24.0",
 ]
 
 [build-system]
