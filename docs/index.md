@@ -17,10 +17,11 @@ Welcome to the Cobjectric documentation. This guide will help you get started wi
 ### Advanced Features
 
 5. [Field Specifications](field_specs.md) - Learn about Spec(), metadata, and field normalizers
-6. [Fill Rate](fill_rate.md) - Learn about fill rate and fill rate accuracy computation
-7. [Similarity](similarity.md) - Learn about similarity computation
-8. [List Comparison Strategies](list_comparison.md) - Learn about strategies for comparing list[BaseModel] fields
-9. [Path Access](path_access.md) - Learn about accessing fields by path notation
+6. [Pre-defined Specs](specs.md) - Learn about KeywordSpec, TextSpec, NumericSpec, and other pre-defined Specs
+7. [Fill Rate](fill_rate.md) - Learn about fill rate and fill rate accuracy computation
+8. [Similarity](similarity.md) - Learn about similarity computation
+9. [List Comparison Strategies](list_comparison.md) - Learn about strategies for comparing list[BaseModel] fields
+10. [Path Access](path_access.md) - Learn about accessing fields by path notation
 
 ### Examples
 

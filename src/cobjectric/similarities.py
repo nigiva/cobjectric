@@ -1,4 +1,5 @@
 import typing as t
+from datetime import datetime, timedelta
 
 from rapidfuzz import fuzz
 
@@ -126,3 +127,92 @@ def numeric_similarity_factory(
         return max(0.0, 1.0 - diff / max_difference)
 
     return numeric_similarity
+
+
+def datetime_similarity_factory(
+    max_difference: timedelta | None = None,
+) -> SimilarityFunc:
+    """
+    Factory for datetime similarity based on time difference.
+
+    Args:
+        max_difference: Maximum time difference as timedelta for comparison.
+            - None (default): Exact match only (1.0 if a == b, 0.0 otherwise)
+            - timedelta > 0: Gradual similarity based on time difference
+              Formula: max(0.0, 1.0 - |time_diff| / max_difference)
+
+    Returns:
+        A similarity function that compares two datetime string values (ISO format).
+
+    Examples:
+        >>> from datetime import timedelta
+        >>> # Exact match required
+        >>> exact = datetime_similarity_factory()
+        >>> exact("2024-01-15T10:30:00Z", "2024-01-15T10:30:00Z")
+        1.0
+        >>> exact("2024-01-15T10:30:00Z", "2024-01-15T10:30:01Z")
+        0.0
+        >>>
+        >>> # Gradual decrease: up to 1 hour of difference
+        >>> gradual = datetime_similarity_factory(max_difference=timedelta(hours=1))
+        >>> gradual("2024-01-15T10:00:00Z", "2024-01-15T10:00:00Z")
+        1.0
+        >>> gradual("2024-01-15T10:00:00Z", "2024-01-15T10:30:00Z")  # 30 min
+        ... # diff=30min, 30min/60min=0.5, 1-0.5=0.5
+        0.5
+        >>> gradual("2024-01-15T10:00:00Z", "2024-01-15T11:00:00Z")  # 1 hour
+        ... # diff=1h, 1h/1h=1.0, 1-1.0=0.0
+        0.0
+
+    Raises:
+        ValueError: If max_difference is <= 0.
+    """
+    if max_difference is not None and max_difference.total_seconds() <= 0:
+        raise ValueError("max_difference must be > 0")
+
+    def parse_datetime(value: t.Any) -> datetime | None:
+        """Parse datetime from string, trying common ISO formats."""
+        assert value is not None  # Already handled by datetime_similarity
+        if isinstance(value, datetime):
+            return value
+
+        if not isinstance(value, str):
+            return None
+
+        # Try common ISO formats
+        formats = [
+            "%Y-%m-%dT%H:%M:%S",
+            "%Y-%m-%dT%H:%M:%S",
+            "%Y-%m-%dT%H:%M:%SZ",
+            "%Y-%m-%dT%H:%M:%S%z",
+            "%Y-%m-%d %H:%M:%S",
+            "%Y-%m-%d",
+        ]
+
+        for fmt in formats:
+            try:
+                return datetime.strptime(value, fmt)
+            except ValueError:
+                continue
+
+        return None
+
+    def datetime_similarity(a: t.Any, b: t.Any) -> float:
+        if a is None or b is None:
+            return 0.0
+
+        dt_a = parse_datetime(a)
+        dt_b = parse_datetime(b)
+
+        if dt_a is None or dt_b is None:
+            return 0.0
+
+        if max_difference is None:
+            return 1.0 if dt_a == dt_b else 0.0
+
+        diff = abs(dt_a - dt_b)
+        max_diff_seconds = max_difference.total_seconds()
+        diff_seconds = diff.total_seconds()
+        return max(0.0, 1.0 - diff_seconds / max_diff_seconds)
+
+    return datetime_similarity

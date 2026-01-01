@@ -98,6 +98,8 @@ print(similarity.fields.tags.mean()) # Uses optimal assignment for best matching
 
 ### Additional Features
 
+- **Pre-defined Specs**: Optimized Specs for common types (`KeywordSpec`, `TextSpec`, `NumericSpec`, `BooleanSpec`, `DatetimeSpec`)
+- **Contextual Normalizers**: Normalizers that receive field context for intelligent type coercion
 - **Statistical Aggregation**: `mean()`, `std()`, `var()`, `min()`, `max()`, `quantile()` on all results
 - **Nested Models**: Recursive computation on complex structures
 - **List Aggregation**: Access aggregated statistics across list items via `items.aggregated_fields.name.mean()`

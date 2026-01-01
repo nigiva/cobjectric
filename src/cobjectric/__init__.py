@@ -1,6 +1,7 @@
 from importlib.metadata import version
 
 from cobjectric.base_model import BaseModel
+from cobjectric.context import FieldContext
 from cobjectric.exceptions import (
     CobjectricError,
     DuplicateFillRateAccuracyFuncError,
@@ -36,15 +37,24 @@ from cobjectric.list_compare import ListCompareStrategy
 from cobjectric.normalizer import field_normalizer
 from cobjectric.sentinel import MissingValue
 from cobjectric.similarities import (
+    datetime_similarity_factory,
     exact_similarity,
     fuzzy_similarity_factory,
     numeric_similarity_factory,
+)
+from cobjectric.specs import (
+    BooleanSpec,
+    DatetimeSpec,
+    KeywordSpec,
+    NumericSpec,
+    TextSpec,
 )
 
 __version__ = version("cobjectric")
 
 __all__ = [
     "BaseModel",
+    "FieldContext",
     "MissingValue",
     "CobjectricError",
     "UnsupportedListTypeError",
@@ -77,6 +87,12 @@ __all__ = [
     "exact_similarity",
     "fuzzy_similarity_factory",
     "numeric_similarity_factory",
+    "datetime_similarity_factory",
     "not_missing_fill_rate",
     "same_state_fill_rate_accuracy",
+    "KeywordSpec",
+    "TextSpec",
+    "NumericSpec",
+    "BooleanSpec",
+    "DatetimeSpec",
 ]
