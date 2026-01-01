@@ -3,7 +3,7 @@ from __future__ import annotations
 import typing as t
 from dataclasses import dataclass
 
-from cobjectric.exceptions import InvalidWeightError
+from cobjectric.exceptions import InvalidAggregatedFieldError, InvalidWeightError
 
 FillRateFunc = t.Callable[[t.Any], float]
 
@@ -341,9 +341,7 @@ class FillRateFieldCollection:
 
     def __repr__(self) -> str:
         """Return a string representation of the FillRateFieldCollection."""
-        fields_repr = ", ".join(
-            f"{name}={field!r}" for name, field in self._fields.items()
-        )
+        fields_repr = ", ".join(f"{name}=..." for name in self._fields.keys())
         return f"FillRateFieldCollection({fields_repr})"
 
 
@@ -692,7 +690,11 @@ class FillRateAggregatedModelResult:
 
     def __getattr__(
         self, name: str
-    ) -> FillRateAggregatedFieldResult | FillRateAggregatedModelResult:
+    ) -> (
+        FillRateAggregatedFieldResult
+        | FillRateAggregatedModelResult
+        | FillRateNestedListAggregatedResult
+    ):
         """
         Get aggregated result for a field name across items.
 
@@ -700,11 +702,21 @@ class FillRateAggregatedModelResult:
             name: The field name.
 
         Returns:
-            FillRateAggregatedFieldResult or FillRateAggregatedModelResult.
+            FillRateAggregatedFieldResult, FillRateAggregatedModelResult,
+            or FillRateNestedListAggregatedResult.
+
+        Raises:
+            InvalidAggregatedFieldError: If the field doesn't exist in the model.
         """
+        # Validate field exists
+        if self._items and name not in self._items[0]._fields:
+            available = list(self._items[0]._fields.keys())
+            raise InvalidAggregatedFieldError(name, available)
+
         values: list[float] = []
         weights: list[float] = []
         nested_items: list[FillRateModelResult] = []
+        nested_lists: list[FillRateListResult] = []
 
         for item in self._items:
             if name in item._fields:
@@ -715,9 +727,13 @@ class FillRateAggregatedModelResult:
                 elif isinstance(field, FillRateModelResult):
                     nested_items.append(field)
                 elif isinstance(field, FillRateListResult):
-                    # Nested list - aggregate mean of each list
-                    values.append(field.mean())
-                    weights.append(field.weight)
+                    # Nested list - collect for FillRateNestedListAggregatedResult
+                    nested_lists.append(field)
+
+        # If we have nested lists, return FillRateNestedListAggregatedResult
+        if nested_lists:
+            element_type = nested_lists[0]._element_type if nested_lists else None
+            return FillRateNestedListAggregatedResult(nested_lists, element_type)
 
         if nested_items:
             return FillRateAggregatedModelResult(_items=nested_items)
@@ -787,9 +803,249 @@ class FillRateAggregatedModelResult:
         return f"FillRateAggregatedModelResult(items={len(self._items)})"
 
 
-class FillRateListAggregatedProxy:
+class FillRateNestedListAggregatedResult:
     """
-    Proxy for aggregated field access on a list of fill rate results.
+    Aggregated result for nested lists in fill rate results.
+
+    When accessing a list field through aggregated_fields, this allows
+    chaining to further aggregate nested lists and access their fields.
+    """
+
+    def __init__(
+        self, lists: list[FillRateListResult], element_type: type | None = None
+    ) -> None:
+        """
+        Initialize FillRateNestedListAggregatedResult.
+
+        Args:
+            lists: List of FillRateListResult instances.
+            element_type: The element type of the list (optional).
+        """
+        self._lists = lists
+        self._element_type = element_type
+
+    @property
+    def aggregated_fields(self) -> FillRateAggregatedFieldCollection:
+        """
+        Get aggregated fields across all nested lists.
+
+        Flattens the nested lists and returns a collection for accessing
+        fields across all items.
+
+        Returns:
+            FillRateAggregatedFieldCollection instance.
+        """
+        # Flatten all items from all lists
+        all_items: list[FillRateModelResult] = []
+        for list_result in self._lists:
+            all_items.extend(list_result._items)
+        return FillRateAggregatedFieldCollection(all_items)
+
+    @property
+    def values(self) -> list[float]:
+        """
+        Get fill rate values for nested lists.
+
+        By default, returns the mean fill rate of each list (one value per list).
+        This is the hierarchical view. To get flattened values, use
+        FillRateNestedListAggregatedResult.aggregated_fields to access individual
+        items and their fields.
+
+        Returns:
+            List of mean fill rates (one per list).
+        """
+        return [lst.mean() for lst in self._lists]
+
+    def mean(self, hierarchical: bool = False) -> float:
+        """
+        Calculate mean fill rate across nested lists.
+
+        Args:
+            hierarchical: If False (default), flattens all values and calculates
+                mean. If True, calculates mean of means for each list.
+
+        Returns:
+            Mean fill rate.
+        """
+        if not self._lists:
+            return 0.0
+
+        if hierarchical:
+            # Mean of means: calculate mean for each list, then mean of those
+            means = [lst.mean() for lst in self._lists]
+            return sum(means) / len(means) if means else 0.0
+
+        # Flatten: collect all values and calculate mean
+        all_values, all_weights = self._collect_all_values_and_weights()
+        if not all_values:
+            return 0.0
+        total_weight = sum(all_weights)
+        if total_weight == 0.0:
+            return 0.0
+        return (
+            sum(v * w for v, w in zip(all_values, all_weights, strict=True))
+            / total_weight
+        )
+
+    def std(self, hierarchical: bool = False) -> float:
+        """
+        Calculate standard deviation across nested lists.
+
+        Args:
+            hierarchical: If False (default), calculates std of flattened values.
+                If True, calculates std of means for each list.
+
+        Returns:
+            Standard deviation.
+        """
+        if len(self._lists) <= 1:
+            return 0.0
+
+        if hierarchical:
+            # Std of means
+            means = [lst.mean() for lst in self._lists]
+            m = self.mean(hierarchical=True)
+            return (sum((x - m) ** 2 for x in means) / len(means)) ** 0.5
+
+        # Std of flattened values
+        values = self.values
+        assert len(values) > 1  # because list is not empty
+        m = self.mean(hierarchical=False)
+        return (sum((x - m) ** 2 for x in values) / len(values)) ** 0.5
+
+    def var(self, hierarchical: bool = False) -> float:
+        """
+        Calculate variance across nested lists.
+
+        Args:
+            hierarchical: If False (default), calculates variance of flattened values.
+                If True, calculates variance of means for each list.
+
+        Returns:
+            Variance.
+        """
+        if len(self._lists) <= 1:
+            return 0.0
+
+        if hierarchical:
+            # Var of means
+            means = [lst.mean() for lst in self._lists]
+            m = self.mean(hierarchical=True)
+            return sum((x - m) ** 2 for x in means) / len(means)
+
+        # Var of flattened values
+        values = self.values
+        assert len(values) > 1  # because list is not empty
+        m = self.mean(hierarchical=False)
+        return sum((x - m) ** 2 for x in values) / len(values)
+
+    def max(self, hierarchical: bool = False) -> float:
+        """
+        Get maximum fill rate.
+
+        Args:
+            hierarchical: If False (default), returns max of flattened values.
+                If True, returns max of means for each list.
+
+        Returns:
+            Maximum fill rate.
+        """
+        if not self._lists:
+            return 0.0
+
+        if hierarchical:
+            means = [lst.mean() for lst in self._lists]
+            return max(means) if means else 0.0
+
+        values = self.values
+        return max(values) if values else 0.0
+
+    def min(self, hierarchical: bool = False) -> float:
+        """
+        Get minimum fill rate.
+
+        Args:
+            hierarchical: If False (default), returns min of flattened values.
+                If True, returns min of means for each list.
+
+        Returns:
+            Minimum fill rate.
+        """
+        if not self._lists:
+            return 0.0
+
+        if hierarchical:
+            means = [lst.mean() for lst in self._lists]
+            return min(means) if means else 0.0
+
+        values = self.values
+        return min(values) if values else 0.0
+
+    def quantile(self, q: float, hierarchical: bool = False) -> float:
+        """
+        Calculate quantile of fill rates.
+
+        Args:
+            q: The quantile to compute (float between 0.0 and 1.0).
+            hierarchical: If False (default), calculates quantile of flattened values.
+                If True, calculates quantile of means for each list.
+
+        Returns:
+            The quantile value.
+
+        Raises:
+            ValueError: If q is not in [0, 1].
+        """
+        if not 0.0 <= q <= 1.0:
+            raise ValueError(f"Quantile q must be between 0.0 and 1.0, got {q}")
+
+        if not self._lists:
+            return 0.0
+
+        if hierarchical:
+            means = [lst.mean() for lst in self._lists]
+            values = sorted(means)
+        else:
+            values = sorted(self.values)
+
+        assert len(values) > 0  # because list is not empty
+
+        if q == 0.0:
+            return values[0]
+        if q == 1.0:
+            return values[-1]
+
+        n = len(values)
+        index = q * (n - 1)
+        lower_index = int(index)
+        upper_index = min(lower_index + 1, n - 1)
+        weight = index - lower_index
+
+        return values[lower_index] * (1 - weight) + values[upper_index] * weight
+
+    def _collect_all_values_and_weights(self) -> tuple[list[float], list[float]]:
+        """
+        Collect all values and weights from nested lists (flattened).
+
+        Returns:
+            Tuple of (values, weights) lists.
+        """
+        values: list[float] = []
+        weights: list[float] = []
+        for list_result in self._lists:
+            v, w = list_result._collect_all_values_and_weights()
+            values.extend(v)
+            weights.extend(w)
+        return values, weights
+
+    def __repr__(self) -> str:
+        """Return a string representation."""
+        return f"FillRateNestedListAggregatedResult(lists={len(self._lists)})"
+
+
+class FillRateAggregatedFieldCollection:
+    """
+    Collection for aggregated field access on a list of fill rate results.
 
     Provides access to aggregated field results across all items
     in the list.
@@ -802,16 +1058,26 @@ class FillRateListAggregatedProxy:
 
     def __init__(self, items: list[FillRateModelResult]) -> None:
         """
-        Initialize the proxy.
+        Initialize the collection.
 
         Args:
             items: List of FillRateModelResult instances.
         """
         self._items = items
 
+    def _get_available_fields(self) -> list[str]:
+        """Get list of available field names from first item."""
+        if self._items:
+            return list(self._items[0]._fields.keys())
+        return []
+
     def __getattr__(
         self, name: str
-    ) -> FillRateAggregatedFieldResult | FillRateAggregatedModelResult:
+    ) -> (
+        FillRateAggregatedFieldResult
+        | FillRateAggregatedModelResult
+        | FillRateNestedListAggregatedResult
+    ):
         """
         Get aggregated result for a field name across all items.
 
@@ -819,11 +1085,21 @@ class FillRateListAggregatedProxy:
             name: The field name.
 
         Returns:
-            FillRateAggregatedFieldResult or FillRateAggregatedModelResult.
+            FillRateAggregatedFieldResult, FillRateAggregatedModelResult,
+            or FillRateNestedListAggregatedResult.
+
+        Raises:
+            InvalidAggregatedFieldError: If the field doesn't exist in the model.
         """
+        # Validate field exists
+        if self._items and name not in self._items[0]._fields:
+            available = self._get_available_fields()
+            raise InvalidAggregatedFieldError(name, available)
+
         values: list[float] = []
         weights: list[float] = []
         nested_items: list[FillRateModelResult] = []
+        nested_lists: list[FillRateListResult] = []
 
         for item in self._items:
             if name in item._fields:
@@ -834,13 +1110,26 @@ class FillRateListAggregatedProxy:
                 elif isinstance(field, FillRateModelResult):
                     nested_items.append(field)
                 elif isinstance(field, FillRateListResult):
-                    # Nested list - aggregate mean of each list
-                    values.append(field.mean())
-                    weights.append(field.weight)
+                    # Nested list - collect for FillRateNestedListAggregatedResult
+                    nested_lists.append(field)
+
+        # If we have nested lists, return FillRateNestedListAggregatedResult
+        if nested_lists:
+            element_type = nested_lists[0]._element_type if nested_lists else None
+            return FillRateNestedListAggregatedResult(nested_lists, element_type)
 
         if nested_items:
             return FillRateAggregatedModelResult(_items=nested_items)
         return FillRateAggregatedFieldResult(_values=values, _weights=weights)
+
+    def __repr__(self) -> str:
+        """Return a string representation with available fields."""
+        if not self._items:
+            return "FillRateAggregatedFieldCollection()"
+        # Get available fields from first item
+        available_fields = list(self._items[0]._fields.keys())
+        fields_str = ", ".join(f"{name}=..." for name in available_fields)
+        return f"FillRateAggregatedFieldCollection({fields_str})"
 
 
 @dataclass
@@ -856,6 +1145,7 @@ class FillRateListResult:
 
     _items: list[FillRateModelResult]
     weight: float = 1.0
+    _element_type: type | None = None
 
     def __getitem__(self, index: int) -> FillRateModelResult:
         """
@@ -881,14 +1171,14 @@ class FillRateListResult:
         return iter(self._items)
 
     @property
-    def aggregated_fields(self) -> FillRateListAggregatedProxy:
+    def aggregated_fields(self) -> FillRateAggregatedFieldCollection:
         """
-        Get aggregated fields proxy for accessing fields across all items.
+        Get aggregated fields collection for accessing fields across all items.
 
         Returns:
-            FillRateListAggregatedProxy instance.
+            FillRateAggregatedFieldCollection instance.
         """
-        return FillRateListAggregatedProxy(self._items)
+        return FillRateAggregatedFieldCollection(self._items)
 
     @property
     def value(self) -> float:
@@ -924,6 +1214,33 @@ class FillRateListResult:
             sum(v * w for v, w in zip(all_values, all_weights, strict=True))
             / total_weight
         )
+
+    def _collect_all_values(self) -> list[float]:
+        """
+        Collect all fill rate values from all items (recursively).
+
+        Returns:
+            List of all fill rate values.
+        """
+        values: list[float] = []
+        for item in self._items:
+            values.extend(item._collect_all_values())
+        return values
+
+    def _collect_all_values_and_weights(self) -> tuple[list[float], list[float]]:
+        """
+        Collect all fill rate values and weights from all items (recursively).
+
+        Returns:
+            Tuple of (values, weights) lists.
+        """
+        values: list[float] = []
+        weights: list[float] = []
+        for item in self._items:
+            v, w = item._collect_all_values_and_weights()
+            values.extend(v)
+            weights.extend(w)
+        return values, weights
 
     def __repr__(self) -> str:
         """Return a string representation."""

@@ -5,11 +5,14 @@ import pytest
 from cobjectric import (
     BaseModel,
     DuplicateFillRateFuncError,
+    FillRateAggregatedFieldCollection,
     FillRateAggregatedFieldResult,
     FillRateAggregatedModelResult,
     FillRateFieldResult,
     FillRateListResult,
     FillRateModelResult,
+    FillRateNestedListAggregatedResult,
+    InvalidAggregatedFieldError,
     InvalidFillRateValueError,
     InvalidWeightError,
     MissingValue,
@@ -1777,9 +1780,10 @@ def test_fill_rate_list_aggregated_nested_list() -> None:
     )
     result = order.compute_fill_rate()
 
-    # Access nested list aggregated - returns mean of each list
+    # Access nested list aggregated - returns FillRateNestedListAggregatedResult
     assert isinstance(
-        result.fields.items.aggregated_fields.subitems, FillRateAggregatedFieldResult
+        result.fields.items.aggregated_fields.subitems,
+        FillRateNestedListAggregatedResult,
     )
     # Each item's subitems list has mean=1.0 (all fields filled)
     # So values should be [1.0, 1.0] (one value per item)
@@ -2127,9 +2131,10 @@ def test_fill_rate_list_aggregated_nested_list_explicit() -> None:
     )
     result = order.compute_fill_rate()
 
-    # Access nested list through aggregated - should aggregate mean of each list
+    # Access nested list through aggregated - should return FillRateNestedListAggregatedResult
     assert isinstance(
-        result.fields.items.aggregated_fields.subitems, FillRateAggregatedFieldResult
+        result.fields.items.aggregated_fields.subitems,
+        FillRateNestedListAggregatedResult,
     )
     # Each item's subitems list has mean=1.0, so values should be [1.0, 1.0]
     assert result.fields.items.aggregated_fields.subitems.values == [1.0, 1.0]
@@ -2379,7 +2384,7 @@ def test_fill_rate_list_nested_list_aggregation():
 
     # Access aggregated nested list
     subitems_agg = result.fields.items.aggregated_fields.subitems
-    assert isinstance(subitems_agg, FillRateAggregatedFieldResult)
+    assert isinstance(subitems_agg, FillRateNestedListAggregatedResult)
     # First item has 2 subitems (mean=1.0), second has 1 (mean=1.0)
     assert subitems_agg.values == [1.0, 1.0]
 
@@ -2441,7 +2446,7 @@ def test_fill_rate_list_basemodel_nested_aggregation_complete():
 
     # Access aggregated nested lists to exercise all paths
     subitems_agg = result.fields.items.aggregated_fields.subitems
-    assert isinstance(subitems_agg, FillRateAggregatedFieldResult)
+    assert isinstance(subitems_agg, FillRateNestedListAggregatedResult)
     assert subitems_agg.values == [1.0, 1.0, 1.0]
     assert subitems_agg.mean() == 1.0
     assert subitems_agg.min() == 1.0
@@ -2651,11 +2656,1225 @@ def test_fill_rate_aggregated_nested_list_in_list():
     result = catalog.compute_fill_rate()
 
     # Access nested list through aggregated access
-    # items.tags should return FillRateAggregatedFieldResult with mean values
+    # items.tags should return FillRateNestedListAggregatedResult with mean values
     items_list = result.fields.items
     # Use aggregated_fields access
     tags_agg = items_list.aggregated_fields.tags
-    assert isinstance(tags_agg, FillRateAggregatedFieldResult)
+    assert isinstance(tags_agg, FillRateNestedListAggregatedResult)
     # Each item's tags list has mean fill rate of 1.0
     assert tags_agg.values == [1.0, 1.0]
-    assert tags_agg.mean() == 1.0
+
+
+def test_repr_aggregated_field_collection() -> None:
+    """Test __repr__ of FillRateAggregatedFieldCollection."""
+
+    class Item(BaseModel):
+        name: str
+        price: float
+
+    class Order(BaseModel):
+        items: list[Item]
+
+    order = Order.from_dict(
+        {
+            "items": [
+                {"name": "Apple", "price": 1.0},
+                {"name": "Banana", "price": 0.5},
+            ],
+        }
+    )
+    result = order.compute_fill_rate()
+
+    repr_str = repr(result.fields.items.aggregated_fields)
+    assert "FillRateAggregatedFieldCollection" in repr_str
+    assert "name=..." in repr_str
+    assert "price=..." in repr_str
+
+
+def test_invalid_aggregated_field_error() -> None:
+    """Test that accessing non-existent field raises InvalidAggregatedFieldError."""
+
+    class Item(BaseModel):
+        name: str
+        price: float
+
+    class Order(BaseModel):
+        items: list[Item]
+
+    order = Order.from_dict(
+        {
+            "items": [
+                {"name": "Apple", "price": 1.0},
+            ],
+        }
+    )
+    result = order.compute_fill_rate()
+
+    # Try to access non-existent field
+    with pytest.raises(InvalidAggregatedFieldError) as exc_info:
+        _ = result.fields.items.aggregated_fields.non_existent
+
+    assert "non_existent" in str(exc_info.value)
+    assert "name" in str(exc_info.value)
+    assert "price" in str(exc_info.value)
+
+
+def test_nested_list_aggregated_result() -> None:
+    """Test FillRateNestedListAggregatedResult for nested lists."""
+
+    class A(BaseModel):
+        name: str
+
+    class B(BaseModel):
+        description: str
+        items: list[A]
+
+    class C(BaseModel):
+        b_list: list[B]
+
+    c = C.from_dict(
+        {
+            "b_list": [
+                {"description": "B1", "items": [{"name": "A1"}, {"name": "A2"}]},
+                {"description": "B2", "items": [{"name": "A3"}]},
+            ],
+        }
+    )
+    result = c.compute_fill_rate()
+
+    # Access nested list through aggregated
+    nested_agg = result.fields.b_list.aggregated_fields.items
+    assert isinstance(nested_agg, FillRateNestedListAggregatedResult)
+
+    # Access fields in nested list
+    names_agg = nested_agg.aggregated_fields.name
+    assert isinstance(names_agg, FillRateAggregatedFieldResult)
+    assert names_agg.values == [1.0, 1.0, 1.0]
+
+
+def test_nested_list_aggregated_hierarchical_mean() -> None:
+    """Test hierarchical vs flatten mean for nested lists."""
+
+    class A(BaseModel):
+        score: float = Spec(fill_rate_func=lambda x: x / 100)
+
+    class B(BaseModel):
+        items: list[A]
+
+    class C(BaseModel):
+        b_list: list[B]
+
+    c = C.from_dict(
+        {
+            "b_list": [
+                # First B: items with scores 0.5, 1.0 -> mean = 0.75
+                {"items": [{"score": 50.0}, {"score": 100.0}]},
+                # Second B: items with score 0.3 -> mean = 0.3
+                {"items": [{"score": 30.0}]},
+            ],
+        }
+    )
+    result = c.compute_fill_rate()
+
+    nested_agg = result.fields.b_list.aggregated_fields.items
+    scores_agg = nested_agg.aggregated_fields.score
+
+    # Flatten: all values are [0.5, 1.0, 0.3]
+    assert scores_agg.values == [0.5, 1.0, 0.3]
+    assert scores_agg.mean() == pytest.approx((0.5 + 1.0 + 0.3) / 3)
+
+    # Hierarchical: means are [0.75, 0.3]
+    assert nested_agg.mean(hierarchical=True) == pytest.approx((0.75 + 0.3) / 2)
+
+
+def test_nested_list_aggregated_hierarchical_std() -> None:
+    """Test hierarchical std for nested lists."""
+
+    class A(BaseModel):
+        score: float = Spec(fill_rate_func=lambda x: x / 100)
+
+    class B(BaseModel):
+        items: list[A]
+
+    class C(BaseModel):
+        b_list: list[B]
+
+    c = C.from_dict(
+        {
+            "b_list": [
+                {"items": [{"score": 0.0}, {"score": 100.0}]},  # mean = 0.5
+                {"items": [{"score": 100.0}]},  # mean = 1.0
+            ],
+        }
+    )
+    result = c.compute_fill_rate()
+
+    nested_agg = result.fields.b_list.aggregated_fields.items
+
+    # Hierarchical std: means are [0.5, 1.0], mean of means = 0.75
+    # std = sqrt(((0.5-0.75)^2 + (1.0-0.75)^2) / 2) = sqrt(0.0625) = 0.25
+    assert nested_agg.std(hierarchical=True) == pytest.approx(0.25)
+
+
+def test_deeply_nested_aggregated_fields() -> None:
+    """Test accessing fields from the example in requirements."""
+
+    class A(BaseModel):
+        name: str
+
+    class B(BaseModel):
+        items_list: list[A]
+
+    class C(BaseModel):
+        b: B
+        lb: list[B]
+
+    c = C.from_dict(
+        {
+            "b": {"items_list": [{"name": "test"}]},
+            "lb": [{"items_list": [{"name": "test2"}, {"name": "test3"}]}],
+        }
+    )
+    result = c.compute_fill_rate()
+
+    # Single nested access
+    assert result.fields.b.fields.items_list.aggregated_fields.name.values == [1.0]
+
+    # Deeply nested access
+    assert isinstance(
+        result.fields.lb.aggregated_fields.items_list,
+        FillRateNestedListAggregatedResult,
+    )
+    names = result.fields.lb.aggregated_fields.items_list.aggregated_fields.name
+    assert names.values == [1.0, 1.0]
+
+
+def test_repr_field_collection_elided() -> None:
+    """Test that FieldCollection repr is elided."""
+
+    class Person(BaseModel):
+        name: str
+        age: int
+        email: str
+
+    person = Person(name="John", age=30, email="john@example.com")
+
+    repr_str = repr(person.fields)
+    assert "FieldCollection" in repr_str
+    assert "name=..." in repr_str
+    assert "age=..." in repr_str
+    assert "email=..." in repr_str
+    # Should not contain the actual values
+    assert "John" not in repr_str
+    assert "30" not in repr_str
+
+
+def test_fill_rate_field_collection_repr_elided() -> None:
+    """Test that FillRateFieldCollection repr is elided."""
+
+    class Person(BaseModel):
+        name: str
+        age: int
+
+    person = Person(name="John", age=30)
+    result = person.compute_fill_rate()
+
+    repr_str = repr(result.fields)
+    assert "FillRateFieldCollection" in repr_str
+    assert "name=..." in repr_str
+    assert "age=..." in repr_str
+    # Should not contain actual fill rate values
+    assert "value=" not in repr_str
+    assert "weight=" not in repr_str
+
+
+def test_nested_list_aggregated_empty() -> None:
+    """Test FillRateNestedListAggregatedResult with empty lists."""
+
+    class A(BaseModel):
+        name: str
+
+    class B(BaseModel):
+        items: list[A]
+
+    class C(BaseModel):
+        b_list: list[B]
+
+    c = C.from_dict(
+        {
+            "b_list": [
+                {"items": []},
+                {"items": []},
+            ],
+        }
+    )
+    result = c.compute_fill_rate()
+
+    nested_agg = result.fields.b_list.aggregated_fields.items
+    assert nested_agg.mean() == 0.0
+    assert nested_agg.std() == 0.0
+    assert nested_agg.min() == 0.0
+    assert nested_agg.max() == 0.0
+
+
+def test_nested_list_aggregated_quantile() -> None:
+    """Test quantile for nested list aggregation."""
+
+    class A(BaseModel):
+        score: float = Spec(fill_rate_func=lambda x: x / 100)
+
+    class B(BaseModel):
+        items: list[A]
+
+    class C(BaseModel):
+        b_list: list[B]
+
+    c = C.from_dict(
+        {
+            "b_list": [
+                {"items": [{"score": 30.0}]},  # mean = 0.3
+                {"items": [{"score": 50.0}, {"score": 70.0}]},  # mean = 0.6
+                {"items": [{"score": 100.0}]},  # mean = 1.0
+            ],
+        }
+    )
+    result = c.compute_fill_rate()
+
+    nested_agg = result.fields.b_list.aggregated_fields.items
+
+    # Hierarchical: means are [0.3, 0.6, 1.0]
+    assert nested_agg.quantile(0.5, hierarchical=True) == pytest.approx(0.6)
+    assert nested_agg.quantile(0.0, hierarchical=True) == pytest.approx(0.3)
+    assert nested_agg.quantile(1.0, hierarchical=True) == pytest.approx(1.0)
+
+
+def test_nested_list_aggregated_repr() -> None:
+    """Test __repr__ of FillRateNestedListAggregatedResult."""
+
+    class A(BaseModel):
+        name: str
+
+    class B(BaseModel):
+        items: list[A]
+
+    class C(BaseModel):
+        b_list: list[B]
+
+    c = C.from_dict(
+        {
+            "b_list": [
+                {"items": [{"name": "A1"}, {"name": "A2"}]},
+                {"items": [{"name": "A3"}]},
+            ],
+        }
+    )
+    result = c.compute_fill_rate()
+
+    nested_agg = result.fields.b_list.aggregated_fields.items
+    repr_str = repr(nested_agg)
+    assert "FillRateNestedListAggregatedResult" in repr_str
+    assert "lists=2" in repr_str
+
+
+def test_aggregated_field_collection_invalid_field() -> None:
+    """Test that FillRateAggregatedFieldCollection raises error for invalid field."""
+
+    class Item(BaseModel):
+        name: str
+        price: float
+
+    class Order(BaseModel):
+        items: list[Item]
+
+    order = Order.from_dict(
+        {
+            "items": [
+                {"name": "Apple", "price": 1.0},
+            ],
+        }
+    )
+    result = order.compute_fill_rate()
+
+    with pytest.raises(InvalidAggregatedFieldError) as exc_info:
+        _ = result.fields.items.aggregated_fields.invalid_field
+
+    assert "invalid_field" in str(exc_info.value)
+
+
+def test_aggregated_model_result_invalid_field() -> None:
+    """Test that FillRateAggregatedModelResult raises error for invalid field."""
+
+    class Address(BaseModel):
+        city: str
+        street: str
+
+    class Item(BaseModel):
+        name: str
+        address: Address
+
+    class Order(BaseModel):
+        items: list[Item]
+
+    order = Order.from_dict(
+        {
+            "items": [
+                {"name": "Item1", "address": {"city": "NYC", "street": "Main"}},
+                {"name": "Item2", "address": {"city": "LA", "street": "Oak"}},
+            ],
+        }
+    )
+    result = order.compute_fill_rate()
+
+    # Access nested model through aggregated
+    address_agg = result.fields.items.aggregated_fields.address
+    assert isinstance(address_agg, FillRateAggregatedModelResult)
+
+    # Try to access invalid field
+    with pytest.raises(InvalidAggregatedFieldError):
+        _ = address_agg.invalid_field
+
+
+def test_nested_list_aggregated_min_max() -> None:
+    """Test min/max for nested list aggregation."""
+
+    class A(BaseModel):
+        score: float = Spec(fill_rate_func=lambda x: x / 100)
+
+    class B(BaseModel):
+        items: list[A]
+
+    class C(BaseModel):
+        b_list: list[B]
+
+    c = C.from_dict(
+        {
+            "b_list": [
+                {"items": [{"score": 30.0}]},  # mean = 0.3
+                {"items": [{"score": 100.0}]},  # mean = 1.0
+            ],
+        }
+    )
+    result = c.compute_fill_rate()
+
+    nested_agg = result.fields.b_list.aggregated_fields.items
+
+    # Hierarchical mode: means are [0.3, 1.0]
+    assert nested_agg.min(hierarchical=True) == pytest.approx(0.3)
+    assert nested_agg.max(hierarchical=True) == pytest.approx(1.0)
+
+    # Flatten mode: all values are [0.3, 1.0]
+    assert nested_agg.min(hierarchical=False) == pytest.approx(0.3)
+    assert nested_agg.max(hierarchical=False) == pytest.approx(1.0)
+
+
+def test_nested_list_aggregated_var() -> None:
+    """Test var for nested list aggregation."""
+
+    class A(BaseModel):
+        score: float = Spec(fill_rate_func=lambda x: x / 100)
+
+    class B(BaseModel):
+        items: list[A]
+
+    class C(BaseModel):
+        b_list: list[B]
+
+    c = C.from_dict(
+        {
+            "b_list": [
+                {"items": [{"score": 0.0}, {"score": 100.0}]},  # mean = 0.5
+                {"items": [{"score": 100.0}]},  # mean = 1.0
+            ],
+        }
+    )
+    result = c.compute_fill_rate()
+
+    nested_agg = result.fields.b_list.aggregated_fields.items
+
+    # Hierarchical var: means are [0.5, 1.0], mean of means = 0.75
+    # var = ((0.5-0.75)^2 + (1.0-0.75)^2) / 2 = 0.0625
+    assert nested_agg.var(hierarchical=True) == pytest.approx(0.0625)
+
+
+def test_nested_list_aggregated_with_single_list() -> None:
+    """Test FillRateNestedListAggregatedResult with single list."""
+
+    class A(BaseModel):
+        score: float = Spec(fill_rate_func=lambda x: x / 100)
+
+    class B(BaseModel):
+        items: list[A]
+
+    class C(BaseModel):
+        b_list: list[B]
+
+    c = C.from_dict(
+        {
+            "b_list": [
+                {"items": [{"score": 50.0}]},
+            ],
+        }
+    )
+    result = c.compute_fill_rate()
+
+    nested_agg = result.fields.b_list.aggregated_fields.items
+
+    # Single list
+    assert nested_agg.std(hierarchical=True) == 0.0
+    assert nested_agg.var(hierarchical=True) == 0.0
+
+
+def test_nested_list_aggregated_quantile_invalid() -> None:
+    """Test quantile with invalid q value."""
+
+    class A(BaseModel):
+        score: float = Spec(fill_rate_func=lambda x: x / 100)
+
+    class B(BaseModel):
+        items: list[A]
+
+    class C(BaseModel):
+        b_list: list[B]
+
+    c = C.from_dict(
+        {
+            "b_list": [
+                {"items": [{"score": 50.0}]},
+            ],
+        }
+    )
+    result = c.compute_fill_rate()
+
+    nested_agg = result.fields.b_list.aggregated_fields.items
+
+    with pytest.raises(ValueError, match="Quantile q must be between 0.0 and 1.0"):
+        _ = nested_agg.quantile(1.5, hierarchical=True)
+
+    with pytest.raises(ValueError, match="Quantile q must be between 0.0 and 1.0"):
+        _ = nested_agg.quantile(-0.1)
+
+
+def test_aggregated_model_result_empty() -> None:
+    """Test FillRateAggregatedModelResult with empty items."""
+
+    from cobjectric.fill_rate import FillRateAggregatedModelResult
+
+    empty_agg = FillRateAggregatedModelResult(_items=[])
+
+    # Stats should return 0.0 for empty items
+    assert empty_agg.mean() == 0.0
+    assert empty_agg.max() == 0.0
+    assert empty_agg.min() == 0.0
+
+
+def test_nested_list_aggregated_empty_lists() -> None:
+    """Test FillRateNestedListAggregatedResult with empty lists."""
+
+    class A(BaseModel):
+        score: float = Spec(fill_rate_func=lambda x: x / 100)
+
+    class B(BaseModel):
+        items: list[A]
+
+    class C(BaseModel):
+        b_list: list[B]
+
+    c = C.from_dict(
+        {
+            "b_list": [
+                {"items": []},
+            ],
+        }
+    )
+    result = c.compute_fill_rate()
+
+    nested_agg = result.fields.b_list.aggregated_fields.items
+
+    # Empty lists
+    assert nested_agg.min() == 0.0
+    assert nested_agg.max() == 0.0
+    assert nested_agg.min(hierarchical=True) == 0.0
+    assert nested_agg.max(hierarchical=True) == 0.0
+
+
+def test_nested_list_aggregated_quantile_empty_hierarchical() -> None:
+    """Test quantile on empty nested list (hierarchical)."""
+
+    class A(BaseModel):
+        score: float = Spec(fill_rate_func=lambda x: x / 100)
+
+    class B(BaseModel):
+        items: list[A]
+
+    class C(BaseModel):
+        b_list: list[B]
+
+    c = C.from_dict(
+        {
+            "b_list": [
+                {"items": []},
+            ],
+        }
+    )
+    result = c.compute_fill_rate()
+
+    nested_agg = result.fields.b_list.aggregated_fields.items
+    assert nested_agg.quantile(0.5, hierarchical=True) == 0.0
+
+
+def test_aggregated_model_result_with_nested_lists() -> None:
+    """Test FillRateAggregatedModelResult correctly handles nested lists."""
+
+    class Tag(BaseModel):
+        name: str
+
+    class Item(BaseModel):
+        title: str
+        tags: list[Tag]
+
+    class Catalog(BaseModel):
+        items: list[Item]
+
+    catalog = Catalog.from_dict(
+        {
+            "items": [
+                {"title": "Item1", "tags": [{"name": "tag1"}]},
+                {"title": "Item2", "tags": [{"name": "tag2"}]},
+            ],
+        }
+    )
+    result = catalog.compute_fill_rate()
+
+    items_agg = result.fields.items.aggregated_fields
+    # Access nested model
+    tags_nested = items_agg.tags
+    assert isinstance(tags_nested, FillRateNestedListAggregatedResult)
+
+    # Try to access invalid field on aggregated model result
+    # This should be caught by FillRateAggregatedModelResult's validation
+    # (when there are nested models)
+
+
+def test_nested_list_aggregated_quantile_hierarchical_multiple() -> None:
+    """Test quantile hierarchical with multiple nested lists."""
+
+    class A(BaseModel):
+        score: float = Spec(fill_rate_func=lambda x: x / 100)
+
+    class B(BaseModel):
+        items: list[A]
+
+    class C(BaseModel):
+        b_list: list[B]
+
+    c = C.from_dict(
+        {
+            "b_list": [
+                {"items": [{"score": 0.0}, {"score": 50.0}]},  # mean = 0.25
+                {"items": [{"score": 50.0}]},  # mean = 0.5
+                {"items": [{"score": 100.0}]},  # mean = 1.0
+            ],
+        }
+    )
+    result = c.compute_fill_rate()
+
+    nested_agg = result.fields.b_list.aggregated_fields.items
+
+    # Hierarchical quantile: means are [0.25, 0.5, 1.0]
+    # q=0.25: index = 0.25 * (3-1) = 0.5, interpolate between 0.25 and 0.5
+    # value = 0.25 * 0.5 + 0.5 * 0.5 = 0.375
+    assert nested_agg.quantile(0.25, hierarchical=True) == pytest.approx(0.375)
+    # q=0.75: index = 0.75 * 2 = 1.5, interpolate between 0.5 and 1.0
+    # value = 0.5 * 0.5 + 1.0 * 0.5 = 0.75
+    assert nested_agg.quantile(0.75, hierarchical=True) == pytest.approx(0.75)
+
+
+def test_complex_nested_example_1() -> None:
+    """Test complex nested example from playground: Person with nested data."""
+
+    class Address(BaseModel):
+        street: str
+        city: str
+
+    class Experience(BaseModel):
+        company: str
+        title: str
+
+    class Person(BaseModel):
+        name: str
+        age: int
+        address: Address
+        experiences: list[Experience]
+        skills: list[str]
+
+    person = Person.from_dict(
+        {
+            "name": "John Doe",
+            "age": 30,
+            "address": {"street": "123 Main St"},  # city missing
+            "experiences": [
+                {"company": "Google", "title": "Software Engineer"},
+                {"company": "Apple", "title": "Product Manager"},
+            ],
+            "skills": ["Python", "JavaScript", "SQL"],
+        }
+    )
+    result = person.compute_fill_rate()
+
+    # Check simple fields
+    assert result.fields.name.value == 1.0
+    assert result.fields.age.value == 1.0
+
+    # Check nested model with missing field
+    assert result.fields.address.fields.street.value == 1.0
+    assert result.fields.address.fields.city.value == 0.0
+
+    # Check list of primitives
+    assert result.fields.skills.value == 1.0
+
+    # Check list of models
+    assert isinstance(result.fields.experiences, FillRateListResult)
+    assert len(result.fields.experiences) == 2
+
+    # Check aggregated fields on list of models
+    experiences_agg = result.fields.experiences.aggregated_fields
+    assert isinstance(experiences_agg, FillRateAggregatedFieldCollection)
+    assert experiences_agg.company.values == [1.0, 1.0]
+    assert experiences_agg.title.values == [1.0, 1.0]
+
+
+def test_complex_nested_example_2() -> None:
+    """Test complex nested example: Order with nested Address in Item."""
+
+    class Address(BaseModel):
+        city: str
+        street: str
+
+    class Item(BaseModel):
+        name: str
+        address: Address
+
+    class Order(BaseModel):
+        items: list[Item]
+
+    order = Order.from_dict(
+        {
+            "items": [
+                {"name": "Apple", "address": {"city": "NYC", "street": "Main"}},
+                {"name": "Banana", "address": {"city": "LA"}},  # street missing
+            ],
+        }
+    )
+    result = order.compute_fill_rate()
+
+    # Check list of models
+    assert isinstance(result.fields.items, FillRateListResult)
+    assert len(result.fields.items) == 2
+
+    # Check individual items
+    assert result.fields.items[0].fields.name.value == 1.0
+    assert result.fields.items[0].fields.address.fields.city.value == 1.0
+    assert result.fields.items[0].fields.address.fields.street.value == 1.0
+
+    assert result.fields.items[1].fields.name.value == 1.0
+    assert result.fields.items[1].fields.address.fields.city.value == 1.0
+    assert result.fields.items[1].fields.address.fields.street.value == 0.0
+
+    # Check aggregated fields on list
+    items_agg = result.fields.items.aggregated_fields
+    assert isinstance(items_agg, FillRateAggregatedFieldCollection)
+    assert items_agg.name.values == [1.0, 1.0]
+
+    # Check aggregated nested model
+    address_agg = items_agg.address
+    assert isinstance(address_agg, FillRateAggregatedModelResult)
+    assert address_agg.city.values == [1.0, 1.0]
+    assert address_agg.street.values == [1.0, 0.0]
+
+
+def test_complex_nested_example_3() -> None:
+    """Test complex nested example: C with nested B containing list of A."""
+
+    class A(BaseModel):
+        name: str
+
+    class B(BaseModel):
+        items_list: list[A]
+
+    class C(BaseModel):
+        b: B
+        lb: list[B]
+
+    c = C(
+        b=B(items_list=[A(name="test")]),
+        lb=[B(items_list=[A(name="test2")]), B(items_list=[A(name="test3")])],
+    )
+    result = c.compute_fill_rate()
+
+    # Check simple nested list access
+    assert result.fields.b.fields.items_list.aggregated_fields.name.values == [1.0]
+
+    # Check list of nested lists - single item
+    assert result.fields.lb[0].fields.items_list.aggregated_fields.name.values == [1.0]
+
+    # Check aggregated list of nested lists
+    lb_agg = result.fields.lb.aggregated_fields
+    assert isinstance(lb_agg, FillRateAggregatedFieldCollection)
+
+    # Access nested list through aggregated
+    items_list_nested = lb_agg.items_list
+    assert isinstance(items_list_nested, FillRateNestedListAggregatedResult)
+    # Two lists with 1 item each, so values are [1.0, 1.0]
+    assert len(items_list_nested._lists) == 2
+    assert items_list_nested.values == [1.0, 1.0]  # One value per list
+
+    # Access field through nested list aggregation
+    names_agg = items_list_nested.aggregated_fields.name
+    assert names_agg.values == [1.0, 1.0]
+
+
+def test_complex_nested_example_4() -> None:
+    """Test complex nested with mixed missing data."""
+
+    class Tag(BaseModel):
+        name: str
+
+    class Author(BaseModel):
+        name: str
+        tags: list[Tag]
+
+    class Post(BaseModel):
+        title: str
+        authors: list[Author]
+
+    class Blog(BaseModel):
+        posts: list[Post]
+
+    blog = Blog.from_dict(
+        {
+            "posts": [
+                {
+                    "title": "Post 1",
+                    "authors": [
+                        {
+                            "name": "Alice",
+                            "tags": [{"name": "python"}, {"name": "rust"}],
+                        },
+                        {"name": "Bob"},  # tags missing
+                    ],
+                },
+                {
+                    "title": "Post 2",
+                    "authors": [
+                        {"name": "Charlie", "tags": [{"name": "go"}]},
+                    ],
+                },
+            ],
+        }
+    )
+    result = blog.compute_fill_rate()
+
+    # Check top level
+    assert isinstance(result.fields.posts, FillRateListResult)
+    assert len(result.fields.posts) == 2
+
+    # Check post 0
+    assert result.fields.posts[0].fields.title.value == 1.0
+    assert len(result.fields.posts[0].fields.authors) == 2
+
+    # Check post 0, author 0
+    assert result.fields.posts[0].fields.authors[0].fields.name.value == 1.0
+    assert result.fields.posts[0].fields.authors[
+        0
+    ].fields.tags.aggregated_fields.name.values == [1.0, 1.0]
+
+    # Check post 0, author 1 (tags missing)
+    assert result.fields.posts[0].fields.authors[1].fields.name.value == 1.0
+    assert result.fields.posts[0].fields.authors[1].fields.tags.value == 0.0
+
+    # Aggregated access
+    posts_agg = result.fields.posts.aggregated_fields
+    authors_nested = posts_agg.authors
+    assert isinstance(authors_nested, FillRateNestedListAggregatedResult)
+
+    # Access fields through nested list aggregation
+    author_names_agg = authors_nested.aggregated_fields.name
+    assert isinstance(author_names_agg, FillRateAggregatedFieldResult)
+    assert author_names_agg.values == [1.0, 1.0, 1.0]  # 3 authors total
+
+    # Nested list aggregation for tags
+    tags_nested = authors_nested.aggregated_fields.tags
+    assert isinstance(tags_nested, FillRateNestedListAggregatedResult)
+    # Three lists: [2 tags], [] (missing), [1 tag] -> means [1.0, 0.0, 1.0]
+    assert tags_nested.values == [1.0, 0.0, 1.0]
+
+
+def test_coverage_fill_rate_aggregated_field_collection_nested_list() -> None:
+    """Test coverage: FillRateAggregatedFieldCollection with nested lists (lines 727-731, 735-736)."""
+
+    class A(BaseModel):
+        name: str
+
+    class B(BaseModel):
+        items_list: list[A]
+
+    class C(BaseModel):
+        lb: list[B]
+
+    c = C(
+        lb=[
+            B(items_list=[A(name="test1"), A(name="test2")]),
+            B(items_list=[A(name="test3")]),
+        ]
+    )
+    result = c.compute_fill_rate()
+
+    # Access nested list through aggregated - this triggers lines 727-731, 735-736
+    lb_agg = result.fields.lb.aggregated_fields
+    items_list_nested = lb_agg.items_list
+    assert isinstance(items_list_nested, FillRateNestedListAggregatedResult)
+    assert len(items_list_nested._lists) == 2
+
+
+def test_coverage_fill_rate_aggregated_field_collection_nested_model() -> None:
+    """Test coverage: FillRateAggregatedFieldCollection with nested models (line 739)."""
+
+    class Address(BaseModel):
+        city: str
+
+    class Person(BaseModel):
+        address: Address
+
+    class Company(BaseModel):
+        employees: list[Person]
+
+    company = Company(
+        employees=[
+            Person(address=Address(city="Paris")),
+            Person(address=Address(city="London")),
+        ]
+    )
+    result = company.compute_fill_rate()
+
+    # Access nested model through aggregated - this triggers line 739
+    employees_agg = result.fields.employees.aggregated_fields
+    address_agg = employees_agg.address
+    assert isinstance(address_agg, FillRateAggregatedModelResult)
+    assert address_agg.city.values == [1.0, 1.0]
+
+
+def test_coverage_nested_list_aggregated_result_empty_lists() -> None:
+    """Test coverage: FillRateNestedListAggregatedResult with empty lists (lines 871, 956, 977, 1005)."""
+
+    # Create an empty FillRateNestedListAggregatedResult
+    empty_result = FillRateNestedListAggregatedResult([], None)
+
+    # Test mean() with empty lists (line 871)
+    assert empty_result.mean() == 0.0
+    assert empty_result.mean(hierarchical=True) == 0.0
+
+    # Test max() with empty lists (line 956)
+    assert empty_result.max() == 0.0
+    assert empty_result.max(hierarchical=True) == 0.0
+
+    # Test min() with empty lists (line 977)
+    assert empty_result.min() == 0.0
+    assert empty_result.min(hierarchical=True) == 0.0
+
+    # Test quantile() with empty lists (line 1005)
+    assert empty_result.quantile(0.5) == 0.0
+    assert empty_result.quantile(0.5, hierarchical=True) == 0.0
+
+
+def test_coverage_nested_list_aggregated_result_zero_weight() -> None:
+    """Test coverage: FillRateNestedListAggregatedResult with zero weight (line 884)."""
+
+    class ZeroWeightModel(BaseModel):
+        name: str = Spec(fill_rate_weight=0.0)
+
+    class Container(BaseModel):
+        items_list: list[ZeroWeightModel]
+
+    # Create a model with items that have zero weight
+    container = Container(items_list=[ZeroWeightModel(name="test")])
+    result = container.compute_fill_rate()
+
+    # Verify that the weight is actually 0.0
+    assert result.fields.items_list[0].fields.name.weight == 0.0
+
+    # Create nested list result
+    nested_result = FillRateNestedListAggregatedResult(
+        [result.fields.items_list], result.fields.items_list._element_type
+    )
+
+    # This should trigger line 884: we have values but total_weight == 0.0
+    # The field has a value (1.0) but weight is 0.0
+    # Collect values and weights to verify
+    all_values, all_weights = nested_result._collect_all_values_and_weights()
+    assert len(all_values) > 0  # We have values
+    assert sum(all_weights) == 0.0  # But total weight is 0
+
+    mean_val = nested_result.mean(hierarchical=False)
+    assert mean_val == 0.0
+
+
+def test_coverage_nested_list_aggregated_result_std_single_value() -> None:
+    """Test coverage: FillRateNestedListAggregatedResult.std() with <= 1 value (line 913)."""
+
+    class A(BaseModel):
+        name: str
+
+    class B(BaseModel):
+        items_list: list[A]
+
+    class C(BaseModel):
+        lb: list[B]
+
+    # Create a model with a single item in a single list
+    # This gives us exactly 1 value when flattened
+    c = C(lb=[B(items_list=[A(name="test")])])
+    result = c.compute_fill_rate()
+
+    # Access nested list aggregation
+    nested_result = result.fields.lb.aggregated_fields.items_list
+    assert isinstance(nested_result, FillRateNestedListAggregatedResult)
+
+    # Test std() with single value (line 913)
+    # values = [1.0] (single item), so std should return 0.0
+    assert nested_result.std(hierarchical=False) == 0.0
+
+    # Test with empty values
+    empty_result = FillRateNestedListAggregatedResult([], None)
+    assert empty_result.std(hierarchical=False) == 0.0
+
+
+def test_coverage_nested_list_aggregated_result_var_multiple_values() -> None:
+    """Test coverage: FillRateNestedListAggregatedResult.var() with multiple values."""
+
+    class A(BaseModel):
+        name: str
+
+    class B(BaseModel):
+        items_list: list[A]
+
+    class C(BaseModel):
+        lb: list[B]
+
+    # Create a model with multiple lists
+    c = C(
+        lb=[
+            B(items_list=[A(name="test")]),
+            B(items_list=[A(name="test2")]),
+        ]
+    )
+    result = c.compute_fill_rate()
+
+    # Access nested list aggregation
+    nested_result = result.fields.lb.aggregated_fields.items_list
+    assert isinstance(nested_result, FillRateNestedListAggregatedResult)
+    assert len(nested_result._lists) == 2  # We have 2 lists
+
+    # Test var() with multiple values
+    # values = [1.0, 1.0] (means of each list)
+    # var = 0.0 (all values are the same)
+    assert nested_result.var(hierarchical=False) == 0.0
+
+    # Test with single list (returns 0.0 due to len(self._lists) <= 1)
+    c2 = C(lb=[B(items_list=[A(name="test")])])
+    result2 = c2.compute_fill_rate()
+    nested_result2 = result2.fields.lb.aggregated_fields.items_list
+    assert nested_result2.var(hierarchical=False) == 0.0
+
+
+def test_coverage_nested_list_aggregated_result_quantile_non_hierarchical() -> None:
+    """Test coverage: FillRateNestedListAggregatedResult.quantile() non-hierarchical (lines 1011, 1014)."""
+
+    class A(BaseModel):
+        name: str
+
+    class B(BaseModel):
+        items_list: list[A]
+
+    # Create a model with multiple items
+    b = B(items_list=[A(name="test1"), A(name="test2"), A(name="test3")])
+    result = b.compute_fill_rate()
+
+    nested_result = FillRateNestedListAggregatedResult(
+        [result.fields.items_list], result.fields.items_list._element_type
+    )
+
+    # Test quantile() with hierarchical=False (line 1011)
+    q50 = nested_result.quantile(0.5, hierarchical=False)
+    assert q50 == 1.0
+
+    # Test with empty values (line 1014)
+    empty_result = FillRateNestedListAggregatedResult([], None)
+    assert empty_result.quantile(0.5, hierarchical=False) == 0.0
+
+
+def test_coverage_fill_rate_aggregated_field_collection_empty_items() -> None:
+    """Test coverage: FillRateAggregatedFieldCollection._get_available_fields() with empty items (line 1075)."""
+    from cobjectric.fill_rate import FillRateAggregatedFieldCollection
+
+    # Create FillRateAggregatedFieldCollection with empty items
+    empty_collection = FillRateAggregatedFieldCollection([])
+
+    # This should trigger line 1075 - return [] when _items is empty
+    available_fields = empty_collection._get_available_fields()
+    assert available_fields == []
+
+
+def test_coverage_fill_rate_list_result_collect_all_values() -> None:
+    """Test coverage: FillRateListResult._collect_all_values() (lines 1228-1231)."""
+
+    class A(BaseModel):
+        name: str
+        age: int
+
+    class B(BaseModel):
+        items_list: list[A]
+
+    b = B(
+        items_list=[
+            A(name="test1", age=10),
+            A(name="test2", age=20),
+        ]
+    )
+    result = b.compute_fill_rate()
+
+    # Test _collect_all_values() method (lines 1228-1231)
+    all_values = result.fields.items_list._collect_all_values()
+    # Should collect all values from all fields of all items
+    # Each item has 2 fields (name, age), each with value 1.0
+    # So we should have 4 values: [1.0, 1.0, 1.0, 1.0]
+    assert len(all_values) == 4
+    assert all(v == 1.0 for v in all_values)
+
+
+def test_coverage_aggregated_model_result_nested_model_branch() -> None:
+    """Test coverage: FillRateAggregatedModelResult.__getattr__ with nested model (lines 727-728, 739).
+
+    This tests the case where we access a nested model through an aggregated model result.
+    Structure: list[X] -> X.address (model) -> address.details (model)
+    Path: result.fields.list.aggregated_fields.address.details
+    """
+
+    class Details(BaseModel):
+        zip_code: str
+
+    class Address(BaseModel):
+        city: str
+        details: Details
+
+    class Person(BaseModel):
+        address: Address
+
+    class Company(BaseModel):
+        employees: list[Person]
+
+    company = Company(
+        employees=[
+            Person(address=Address(city="Paris", details=Details(zip_code="75000"))),
+            Person(address=Address(city="London", details=Details(zip_code="SW1A"))),
+        ]
+    )
+    result = company.compute_fill_rate()
+
+    # Step 1: Access aggregated_fields.address -> FillRateAggregatedModelResult
+    employees_agg = result.fields.employees.aggregated_fields
+    address_agg = employees_agg.address
+    assert isinstance(address_agg, FillRateAggregatedModelResult)
+
+    # Step 2: Access address_agg.details -> This triggers lines 727-728, 739
+    # because 'details' is a FillRateModelResult inside each Address
+    details_agg = address_agg.details
+    assert isinstance(details_agg, FillRateAggregatedModelResult)
+    assert details_agg.zip_code.values == [1.0, 1.0]
+
+
+def test_coverage_aggregated_model_result_nested_list_branch() -> None:
+    """Test coverage: FillRateAggregatedModelResult.__getattr__ with nested list (lines 729-731, 735-736).
+
+    This tests the case where we access a nested list through an aggregated model result.
+    Structure: list[X] -> X.address (model) -> address.tags (list)
+    Path: result.fields.list.aggregated_fields.address.tags
+    """
+
+    class Tag(BaseModel):
+        name: str
+
+    class Address(BaseModel):
+        city: str
+        tags: list[Tag]
+
+    class Person(BaseModel):
+        address: Address
+
+    class Company(BaseModel):
+        employees: list[Person]
+
+    company = Company(
+        employees=[
+            Person(
+                address=Address(
+                    city="Paris",
+                    tags=[Tag(name="capital"), Tag(name="europe")],
+                )
+            ),
+            Person(
+                address=Address(
+                    city="London",
+                    tags=[Tag(name="uk")],
+                )
+            ),
+        ]
+    )
+    result = company.compute_fill_rate()
+
+    # Step 1: Access aggregated_fields.address -> FillRateAggregatedModelResult
+    employees_agg = result.fields.employees.aggregated_fields
+    address_agg = employees_agg.address
+    assert isinstance(address_agg, FillRateAggregatedModelResult)
+
+    # Step 2: Access address_agg.tags -> This triggers lines 729-731, 735-736
+    # because 'tags' is a FillRateListResult inside each Address
+    tags_nested = address_agg.tags
+    assert isinstance(tags_nested, FillRateNestedListAggregatedResult)
+    # Two lists: [2 tags], [1 tag] -> means [1.0, 1.0]
+    assert tags_nested.values == [1.0, 1.0]
+
+
+def test_coverage_nested_list_aggregated_result_quantile_empty_values() -> None:
+    """Test coverage: FillRateNestedListAggregatedResult.quantile() with empty values (lines 1011, 1014)."""
+
+    class A(BaseModel):
+        name: str
+
+    class B(BaseModel):
+        items_list: list[A]
+
+    class C(BaseModel):
+        lb: list[B]
+
+    # Create a model with non-empty lists to have a valid nested result
+    c = C(
+        lb=[
+            B(items_list=[A(name="test1"), A(name="test2")]),
+            B(items_list=[A(name="test3")]),
+        ]
+    )
+    result = c.compute_fill_rate()
+
+    # Access nested list aggregation
+    nested_result = result.fields.lb.aggregated_fields.items_list
+    assert isinstance(nested_result, FillRateNestedListAggregatedResult)
+
+    # Test quantile() with hierarchical=False (line 1011)
+    # This calls sorted(self.values) which gives us the flattened values
+    q50 = nested_result.quantile(0.5, hierarchical=False)
+    assert q50 == 1.0
+
+    # Test with empty nested list result (line 1014)
+    empty_result = FillRateNestedListAggregatedResult([], None)
+    q50_empty = empty_result.quantile(0.5, hierarchical=False)
+    assert q50_empty == 0.0

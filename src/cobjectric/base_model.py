@@ -614,18 +614,20 @@ class BaseModel:
                     # list[BaseModel] → FillRateListResult
                     if field.value is MissingValue:
                         result_fields[field_name] = FillRateListResult(
-                            _items=[], weight=weight_to_use
+                            _items=[], weight=weight_to_use, _element_type=element_type
                         )
                     elif not field.value:  # Liste vide
                         result_fields[field_name] = FillRateListResult(
-                            _items=[], weight=weight_to_use
+                            _items=[], weight=weight_to_use, _element_type=element_type
                         )
                     else:
                         items_results = [
                             item.compute_fill_rate() for item in field.value
                         ]
                         result_fields[field_name] = FillRateListResult(
-                            _items=items_results, weight=weight_to_use
+                            _items=items_results,
+                            weight=weight_to_use,
+                            _element_type=element_type,
                         )
                 else:
                     # list[Primitive] → FillRateFieldResult
@@ -820,7 +822,9 @@ class BaseModel:
                             )
 
                     result_fields[field_name] = FillRateListResult(
-                        _items=items_results, weight=weight_to_use
+                        _items=items_results,
+                        weight=weight_to_use,
+                        _element_type=element_type,
                     )
                 else:
                     # list[Primitive] → FillRateFieldResult

@@ -246,7 +246,5 @@ class FieldCollection:
 
     def __repr__(self) -> str:
         """Return a string representation of the FieldCollection."""
-        fields_repr = ", ".join(
-            f"{name}={field!r}" for name, field in self._fields.items()
-        )
+        fields_repr = ", ".join(f"{name}=..." for name in self._fields.keys())
         return f"FieldCollection({fields_repr})"

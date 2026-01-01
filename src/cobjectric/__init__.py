@@ -5,6 +5,7 @@ from cobjectric.exceptions import (
     CobjectricError,
     DuplicateFillRateAccuracyFuncError,
     DuplicateFillRateFuncError,
+    InvalidAggregatedFieldError,
     InvalidFillRateValueError,
     InvalidWeightError,
     MissingListTypeArgError,
@@ -14,12 +15,14 @@ from cobjectric.exceptions import (
 from cobjectric.field_spec import FieldSpec, Spec
 from cobjectric.fill_rate import (
     FillRateAccuracyFuncInfo,
+    FillRateAggregatedFieldCollection,
     FillRateAggregatedFieldResult,
     FillRateAggregatedModelResult,
     FillRateFieldResult,
     FillRateFuncInfo,
     FillRateListResult,
     FillRateModelResult,
+    FillRateNestedListAggregatedResult,
     fill_rate_accuracy_func,
     fill_rate_func,
 )
@@ -39,6 +42,7 @@ __all__ = [
     "DuplicateFillRateAccuracyFuncError",
     "InvalidFillRateValueError",
     "InvalidWeightError",
+    "InvalidAggregatedFieldError",
     "FieldSpec",
     "Spec",
     "field_normalizer",
@@ -51,4 +55,6 @@ __all__ = [
     "FillRateListResult",
     "FillRateAggregatedFieldResult",
     "FillRateAggregatedModelResult",
+    "FillRateAggregatedFieldCollection",
+    "FillRateNestedListAggregatedResult",
 ]
