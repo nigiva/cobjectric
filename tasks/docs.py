@@ -37,4 +37,3 @@ docs = Collection("docs")
 docs.add_task(serve)
 docs.add_task(build)
 docs.add_task(deploy)
-
