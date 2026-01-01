@@ -27,6 +27,8 @@ from cobjectric.fill_rate import (
     SimilarityFuncInfo,
     fill_rate_accuracy_func,
     fill_rate_func,
+    not_missing_fill_rate,
+    same_state_fill_rate_accuracy,
     similarity_func,
 )
 from cobjectric.normalizer import field_normalizer
@@ -71,4 +73,6 @@ __all__ = [
     "exact_similarity",
     "fuzzy_similarity_factory",
     "numeric_similarity_factory",
+    "not_missing_fill_rate",
+    "same_state_fill_rate_accuracy",
 ]

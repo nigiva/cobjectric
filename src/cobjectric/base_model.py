@@ -26,8 +26,11 @@ from cobjectric.fill_rate import (
     FillRateModelResult,
     SimilarityFunc,
     SimilarityFuncInfo,
+    not_missing_fill_rate,
+    same_state_fill_rate_accuracy,
 )
 from cobjectric.sentinel import MissingValue
+from cobjectric.similarities import exact_similarity
 
 
 class BaseModel:
@@ -520,49 +523,6 @@ class BaseModel:
         return similarity_funcs
 
     @staticmethod
-    def _default_fill_rate_func(value: t.Any) -> float:
-        """
-        Default fill_rate_func: returns 0.0 if MissingValue, else 1.0.
-
-        Args:
-            value: The field value.
-
-        Returns:
-            float: 0.0 if MissingValue, 1.0 otherwise.
-        """
-        return 0.0 if value is MissingValue else 1.0
-
-    @staticmethod
-    def _default_fill_rate_accuracy_func(got: t.Any, expected: t.Any) -> float:
-        """
-        Default fill_rate_accuracy_func: returns 1.0 if both have same state, else 0.0.
-
-        Args:
-            got: The field value from the model being evaluated.
-            expected: The field value from the expected model.
-
-        Returns:
-            float: 1.0 if both are filled or both are MissingValue, 0.0 otherwise.
-        """
-        got_filled = got is not MissingValue
-        expected_filled = expected is not MissingValue
-        return 1.0 if got_filled == expected_filled else 0.0
-
-    @staticmethod
-    def _default_similarity_func(got: t.Any, expected: t.Any) -> float:
-        """
-        Default similarity_func: returns 1.0 if values are equal, else 0.0.
-
-        Args:
-            got: The field value from the model being evaluated.
-            expected: The field value from the expected model.
-
-        Returns:
-            float: 1.0 if got == expected, 0.0 otherwise.
-        """
-        return 1.0 if got == expected else 0.0
-
-    @staticmethod
     def _validate_fill_rate_value(field_name: str, value: t.Any) -> float:
         """
         Validate that fill_rate_func returns a valid float in [0, 1].
@@ -620,20 +580,22 @@ class BaseModel:
             spec_func = spec.fill_rate_func
             decorator_funcs = decorator_fill_rate_funcs.get(field_name, [])
 
-            if spec_func and decorator_funcs:
+            # Only consider it a duplicate if spec_func is not the default
+            if (
+                spec_func is not None
+                and spec_func != not_missing_fill_rate
+                and decorator_funcs
+            ):
                 raise DuplicateFillRateFuncError(field_name)
 
             if len(decorator_funcs) > 1:
                 raise DuplicateFillRateFuncError(field_name)
 
             # Get the fill_rate_func to use
-            fill_rate_func_to_use: FillRateFunc | None = None
-            if spec_func:
-                fill_rate_func_to_use = spec_func
-            elif decorator_funcs:
-                fill_rate_func_to_use = decorator_funcs[0].func
-            else:
-                fill_rate_func_to_use = self._default_fill_rate_func
+            # Decorator takes precedence, otherwise use spec (which has a default)
+            fill_rate_func_to_use: FillRateFunc = (
+                decorator_funcs[0].func if decorator_funcs else spec_func
+            )
 
             # Get the weight to use (decorator > Spec > default 1.0)
             weight_to_use: float = 1.0
@@ -676,17 +638,12 @@ class BaseModel:
                         )
                 else:
                     # list[Primitive] → FillRateFieldResult
+                    # Empty list should return 0.0, otherwise use the function
                     if field.value is MissingValue or not field.value:
                         fill_value = 0.0
                     else:
-                        fill_value = 1.0
-
-                    # Apply custom fill_rate_func if defined
-                    if fill_rate_func_to_use != self._default_fill_rate_func:
                         fill_value = fill_rate_func_to_use(field.value)
-                        fill_value = self._validate_fill_rate_value(
-                            field_name, fill_value
-                        )
+                    fill_value = self._validate_fill_rate_value(field_name, fill_value)
 
                     result_fields[field_name] = FillRateFieldResult(
                         value=fill_value, weight=weight_to_use
@@ -768,20 +725,22 @@ class BaseModel:
             spec_func = spec.fill_rate_accuracy_func
             decorator_funcs = decorator_fill_rate_accuracy_funcs.get(field_name, [])
 
-            if spec_func and decorator_funcs:
+            # Only consider it a duplicate if spec_func is not the default
+            if (
+                spec_func is not None
+                and spec_func != same_state_fill_rate_accuracy
+                and decorator_funcs
+            ):
                 raise DuplicateFillRateAccuracyFuncError(field_name)
 
             if len(decorator_funcs) > 1:
                 raise DuplicateFillRateAccuracyFuncError(field_name)
 
             # Get the fill_rate_accuracy_func to use
-            fill_rate_accuracy_func_to_use: FillRateAccuracyFunc | None = None
-            if spec_func:
-                fill_rate_accuracy_func_to_use = spec_func
-            elif decorator_funcs:
-                fill_rate_accuracy_func_to_use = decorator_funcs[0].func
-            else:
-                fill_rate_accuracy_func_to_use = self._default_fill_rate_accuracy_func
+            # Decorator takes precedence, otherwise use spec (which has a default)
+            fill_rate_accuracy_func_to_use: FillRateAccuracyFunc = (
+                decorator_funcs[0].func if decorator_funcs else spec_func
+            )
 
             # Get the weight to use (decorator > Spec > default 1.0)
             weight_to_use: float = 1.0
@@ -1013,20 +972,22 @@ class BaseModel:
             spec_func = spec.similarity_func
             decorator_funcs = decorator_similarity_funcs.get(field_name, [])
 
-            if spec_func and decorator_funcs:
+            # Only consider it a duplicate if spec_func is not the default
+            if (
+                spec_func is not None
+                and spec_func != exact_similarity
+                and decorator_funcs
+            ):
                 raise DuplicateSimilarityFuncError(field_name)
 
             if len(decorator_funcs) > 1:
                 raise DuplicateSimilarityFuncError(field_name)
 
             # Get the similarity_func to use
-            similarity_func_to_use: SimilarityFunc | None = None
-            if spec_func:
-                similarity_func_to_use = spec_func
-            elif decorator_funcs:
-                similarity_func_to_use = decorator_funcs[0].func
-            else:
-                similarity_func_to_use = self._default_similarity_func
+            # Decorator takes precedence, otherwise use spec (which has a default)
+            similarity_func_to_use: SimilarityFunc = (
+                decorator_funcs[0].func if decorator_funcs else spec_func
+            )
 
             # Get the weight to use (decorator > Spec > default 1.0)
             weight_to_use: float = 1.0

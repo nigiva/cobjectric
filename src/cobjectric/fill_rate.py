@@ -4,8 +4,33 @@ import typing as t
 from dataclasses import dataclass
 
 from cobjectric.exceptions import InvalidAggregatedFieldError, InvalidWeightError
+from cobjectric.sentinel import MissingValue
 
 FillRateFunc = t.Callable[[t.Any], float]
+
+
+def not_missing_fill_rate(value: t.Any) -> float:
+    """
+    Fill rate function: returns 0.0 if MissingValue, else 1.0.
+
+    Args:
+        value: The field value.
+
+    Returns:
+        float: 0.0 if MissingValue, 1.0 otherwise.
+
+    Examples:
+        >>> from cobjectric.fill_rate import not_missing_fill_rate
+        >>> from cobjectric import MissingValue
+        >>> not_missing_fill_rate("John")
+        1.0
+        >>> not_missing_fill_rate(MissingValue)
+        0.0
+    """
+    return 0.0 if value is MissingValue else 1.0
+
+
+default_fill_rate_func = not_missing_fill_rate
 
 
 @dataclass
@@ -67,6 +92,35 @@ def fill_rate_func(
 
 
 FillRateAccuracyFunc = t.Callable[[t.Any, t.Any], float]
+
+
+def same_state_fill_rate_accuracy(got: t.Any, expected: t.Any) -> float:
+    """
+    Fill rate accuracy function: returns 1.0 if both have same state, else 0.0.
+
+    Args:
+        got: The field value from the model being evaluated.
+        expected: The field value from the expected model.
+
+    Returns:
+        float: 1.0 if both are filled or both are MissingValue, 0.0 otherwise.
+
+    Examples:
+        >>> from cobjectric.fill_rate import same_state_fill_rate_accuracy
+        >>> from cobjectric import MissingValue
+        >>> same_state_fill_rate_accuracy("John", "Jane")
+        1.0
+        >>> same_state_fill_rate_accuracy("John", MissingValue)
+        0.0
+        >>> same_state_fill_rate_accuracy(MissingValue, MissingValue)
+        1.0
+    """
+    got_filled = got is not MissingValue
+    expected_filled = expected is not MissingValue
+    return 1.0 if got_filled == expected_filled else 0.0
+
+
+default_fill_rate_accuracy_func = same_state_fill_rate_accuracy
 
 
 @dataclass

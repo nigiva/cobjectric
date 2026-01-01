@@ -6,7 +6,10 @@ from cobjectric.fill_rate import (
     FillRateAccuracyFunc,
     FillRateFunc,
     SimilarityFunc,
+    not_missing_fill_rate,
+    same_state_fill_rate_accuracy,
 )
+from cobjectric.similarities import exact_similarity
 
 Normalizer = t.Callable[[t.Any], t.Any]
 
@@ -19,11 +22,13 @@ class FieldSpec:
 
     metadata: dict[str, t.Any] = field(default_factory=dict)
     normalizer: Normalizer | None = None
-    fill_rate_func: FillRateFunc | None = None
+    fill_rate_func: FillRateFunc = field(default=not_missing_fill_rate)
     fill_rate_weight: float = 1.0
-    fill_rate_accuracy_func: FillRateAccuracyFunc | None = None
+    fill_rate_accuracy_func: FillRateAccuracyFunc = field(
+        default=same_state_fill_rate_accuracy
+    )
     fill_rate_accuracy_weight: float = 1.0
-    similarity_func: SimilarityFunc | None = None
+    similarity_func: SimilarityFunc = field(default=exact_similarity)
     similarity_weight: float = 1.0
 
 
@@ -74,10 +79,18 @@ def Spec(  # noqa: N802
     return FieldSpec(
         metadata=metadata if metadata is not None else {},
         normalizer=normalizer,
-        fill_rate_func=fill_rate_func,
+        fill_rate_func=(
+            fill_rate_func if fill_rate_func is not None else not_missing_fill_rate
+        ),
         fill_rate_weight=fill_rate_weight,
-        fill_rate_accuracy_func=fill_rate_accuracy_func,
+        fill_rate_accuracy_func=(
+            fill_rate_accuracy_func
+            if fill_rate_accuracy_func is not None
+            else same_state_fill_rate_accuracy
+        ),
         fill_rate_accuracy_weight=fill_rate_accuracy_weight,
-        similarity_func=similarity_func,
+        similarity_func=(
+            similarity_func if similarity_func is not None else exact_similarity
+        ),
         similarity_weight=similarity_weight,
     )
