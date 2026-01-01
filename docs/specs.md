@@ -9,10 +9,11 @@ Cobjectric provides pre-defined Specs optimized for common field types. These Sp
 Optimized for identifiers, codes, enums, and other exact-match fields.
 
 **Features:**
+
 - Exact similarity matching
 - Optional whitespace stripping (default: enabled)
 - Optional int-to-string conversion (default: enabled)
-  - Useful when IDs come as integers from JSON but should be compared as strings
+    - Useful when IDs come as integers from JSON but should be compared as strings
 
 **Example:**
 ```python
@@ -31,21 +32,23 @@ assert person2.fields.id.value == "123"  # Converted to string
 ```
 
 **Parameters:**
+
 - `strip`: Strip leading/trailing whitespace (default: `True`)
 - `convert_int_to_str`: Convert int values to string (default: `True`)
-  - Useful when IDs come as integers from JSON but should be compared as strings
+    - Useful when IDs come as integers from JSON but should be compared as strings
 
 ### TextSpec
 
 Optimized for free-form text fields with fuzzy matching.
 
 **Features:**
+
 - Fuzzy similarity matching (using rapidfuzz)
 - Comprehensive text normalization:
-  - Lowercase conversion (default: enabled)
-  - Whitespace stripping (default: enabled)
-  - Space collapsing (default: enabled)
-  - Accent removal (default: enabled)
+    - Lowercase conversion (default: enabled)
+    - Whitespace stripping (default: enabled)
+    - Space collapsing (default: enabled)
+    - Accent removal (default: enabled)
 
 **Example:**
 ```python
@@ -62,6 +65,7 @@ assert person.fields.description.value == "Café"  # Preserved case and accents
 ```
 
 **Parameters:**
+
 - `lower`: Convert to lowercase (default: `True`)
 - `strip`: Strip leading/trailing whitespace (default: `True`)
 - `collapse_spaces`: Collapse multiple spaces to single space (default: `True`)
@@ -73,6 +77,7 @@ assert person.fields.description.value == "Café"  # Preserved case and accents
 Optimized for numeric fields (int, float) with intelligent type coercion.
 
 **Features:**
+
 - Numeric similarity with optional tolerance
 - Automatic type coercion (JSON Number → Python int/float)
 - Handles Union types (e.g., `int | None`)
@@ -94,6 +99,7 @@ assert isinstance(person.fields.score.value, float)
 ```
 
 **Parameters:**
+
 - `max_difference`: Maximum difference for similarity (None = exact match)
 - `coerce_type`: Coerce to int/float based on field type (default: `True`)
 
@@ -111,6 +117,7 @@ automatically converts based on the declared field type:
 Optimized for boolean fields.
 
 **Features:**
+
 - Exact similarity matching
 - Converts various values to bool
 
@@ -133,6 +140,7 @@ person3 = Person(is_verified=None)  # Preserves None
 Optimized for datetime string fields (ISO format).
 
 **Features:**
+
 - Datetime similarity with optional time difference tolerance
 - Automatic normalization to ISO format
 - Supports multiple input formats (auto-detect or custom)
@@ -164,12 +172,13 @@ assert event2.fields.updated_at.value == "2024-01-15T10:30:00"
 ```
 
 **Parameters:**
+
 - `format`: Optional datetime format string for parsing (auto-detect if None)
-  - If specified, uses `datetime.strptime()` with this format
-  - Example: `"%Y-%m-%d %H:%M:%S"`, `"%d/%m/%Y"`, etc.
-  - If None, auto-detects common ISO formats
+    - If specified, uses `datetime.strptime()` with this format
+    - Example: `"%Y-%m-%d %H:%M:%S"`, `"%d/%m/%Y"`, etc.
+    - If None, auto-detects common ISO formats
 - `max_difference`: Maximum time difference as timedelta (None = exact match)
-  - Use `timedelta(days=1)`, `timedelta(hours=1)`, `timedelta(minutes=30)`, etc.
+    - Use `timedelta(days=1)`, `timedelta(hours=1)`, `timedelta(minutes=30)`, etc.
 
 ## Using Custom Parameters
 
@@ -200,6 +209,7 @@ the declared field type.
 ### FieldContext
 
 Contextual normalizers receive a `FieldContext` object with:
+
 - `name`: The field name
 - `field_type`: The declared Python type
 - `spec`: The FieldSpec associated with the field
@@ -218,6 +228,7 @@ class Person(BaseModel):
 ```
 
 Normalizers can have two signatures:
+
 - Simple: `Callable[[Any], Any]` (1 parameter)
 - Contextual: `Callable[[Any, FieldContext], Any]` (2 parameters)
 

@@ -6,6 +6,7 @@
 [![codecov](https://codecov.io/github/nigiva/cobjectric/graph/badge.svg?token=8W3KJU8JG1)](https://codecov.io/github/nigiva/cobjectric)
 [![PyPI version](https://img.shields.io/pypi/v/cobjectric.svg)](https://pypi.org/project/cobjectric/)
 [![Python Version](https://img.shields.io/pypi/pyversions/cobjectric.svg)](https://pypi.org/project/cobjectric/)
+[![Documentation](https://img.shields.io/badge/docs-cobjectric.nigiva.com-blue)](https://cobjectric.nigiva.com)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 [![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
 [![Ruff](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/ruff/main/assets/badge/v2.json)](https://github.com/astral-sh/ruff)
@@ -14,7 +15,17 @@
 
 Cobjectric is a library designed to help developers calculate metrics on complex objects such as JSON, dictionaries, and arrays. It was originally created for Machine Learning projects where comparing and evaluating generated JSON structures against ground truth data was a repetitive manual task.
 
-## 📚 Installation
+## 📚 Documentation
+
+**📖 Full documentation available at: [https://cobjectric.nigiva.com](https://cobjectric.nigiva.com)**
+
+The documentation includes:
+- Quick start guide
+- Complete API reference
+- Detailed examples
+- Advanced features and best practices
+
+## 📦 Installation
 
 ```bash
 pip install cobjectric
