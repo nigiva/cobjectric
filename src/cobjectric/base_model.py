@@ -4,6 +4,7 @@ import fnmatch
 import types
 import typing as t
 
+from cobjectric.context import FieldContext
 from cobjectric.exceptions import (
     DuplicateFillRateAccuracyFuncError,
     DuplicateFillRateFuncError,
@@ -16,7 +17,7 @@ from cobjectric.exceptions import (
 )
 from cobjectric.field import Field
 from cobjectric.field_collection import FieldCollection
-from cobjectric.field_spec import FieldSpec
+from cobjectric.field_spec import FieldSpec, is_contextual_normalizer
 from cobjectric.fill_rate import (
     FillRateAccuracyFunc,
     FillRateAccuracyFuncInfo,
@@ -440,6 +441,7 @@ class BaseModel:
     def _build_combined_normalizer(
         spec_normalizer: t.Callable[..., t.Any] | None,
         decorator_normalizers: list[t.Callable[..., t.Any]],
+        context: FieldContext | None = None,
     ) -> t.Callable[..., t.Any] | None:
         """
         Build a single normalizer from Spec + decorator normalizers.
@@ -448,6 +450,7 @@ class BaseModel:
             spec_normalizer: Normalizer from Spec() if any.
             decorator_normalizers: List of normalizers from
                 @field_normalizer decorators.
+            context: Optional FieldContext to pass to contextual normalizers.
 
         Returns:
             Combined normalizer function or None if no normalizers.
@@ -460,10 +463,24 @@ class BaseModel:
         if not all_normalizers:
             return None
 
+        # Check if any normalizer is contextual
+        has_contextual = any(
+            is_contextual_normalizer(norm_func) for norm_func in all_normalizers
+        )
+
+        if has_contextual and context is None:
+            raise ValueError(
+                "Contextual normalizer requires FieldContext but context is None"
+            )
+
         def combined(value: t.Any) -> t.Any:
             result = value
             for norm_func in all_normalizers:
-                result = norm_func(result)
+                if is_contextual_normalizer(norm_func):
+                    assert context is not None
+                    result = norm_func(result, context)
+                else:
+                    result = norm_func(result)
             return result
 
         return combined
@@ -1133,18 +1150,29 @@ class BaseModel:
 
             # Apply normalizers before type validation
             if value is not MissingValue:
+                # Create context for contextual normalizers
+                context = FieldContext(
+                    name=field_name, field_type=field_type, spec=spec
+                )
                 combined_normalizer = self._build_combined_normalizer(
                     spec.normalizer,
                     field_normalizers.get(field_name, []),
+                    context=context,
                 )
                 if combined_normalizer:
                     value = combined_normalizer(value)
                     # Create new FieldSpec with combined normalizer,
-                    # preserving fill_rate_func
+                    # preserving all other spec attributes
                     spec = FieldSpec(
                         metadata=spec.metadata,
                         normalizer=combined_normalizer,
                         fill_rate_func=spec.fill_rate_func,
+                        fill_rate_weight=spec.fill_rate_weight,
+                        fill_rate_accuracy_func=spec.fill_rate_accuracy_func,
+                        fill_rate_accuracy_weight=spec.fill_rate_accuracy_weight,
+                        similarity_func=spec.similarity_func,
+                        similarity_weight=spec.similarity_weight,
+                        list_compare_strategy=spec.list_compare_strategy,
                     )
 
                 # Then validate type

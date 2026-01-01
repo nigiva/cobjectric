@@ -330,9 +330,81 @@ print(result.fields.humidity.value)  # 0.2
 print(result.mean())  # 0.35
 ```
 
+## Pre-defined Specs Examples
+
+### Example 14: Using KeywordSpec
+
+```python
+from cobjectric import BaseModel
+from cobjectric.specs import KeywordSpec
+
+class Product(BaseModel):
+    product_id: str = KeywordSpec()  # Converts int to str by default
+    sku: str = KeywordSpec(strip=True, convert_int_to_str=True)
+
+# ID comes as int from JSON
+product = Product.from_dict({
+    "product_id": 12345,  # int from JSON
+    "sku": "  ABC-123  "
+})
+
+assert product.fields.product_id.value == "12345"  # Converted to string
+assert product.fields.sku.value == "ABC-123"  # Stripped and converted
+```
+
+### Example 15: Using DatetimeSpec
+
+```python
+from datetime import timedelta
+
+from cobjectric import BaseModel
+from cobjectric.specs import DatetimeSpec
+
+class Event(BaseModel):
+    created_at: str = DatetimeSpec()  # Auto-detects format
+    updated_at: str = DatetimeSpec(format="%Y-%m-%d %H:%M:%S")
+    timestamp: str = DatetimeSpec(max_difference=timedelta(hours=1))
+
+# Various input formats
+event1 = Event(created_at="2024-01-15T10:30:00Z")
+assert event1.fields.created_at.value == "2024-01-15T10:30:00Z"
+
+event2 = Event(updated_at="2024-01-15 10:30:00")
+assert event2.fields.updated_at.value == "2024-01-15T10:30:00"
+
+# With timezone
+event3 = Event(created_at="2024-01-15T10:30:00+05:00")
+assert event3.fields.created_at.value == "2024-01-15T10:30:00+05:00"
+
+# With different date format
+event4 = Event(created_at="15/01/2024 10:30:00")
+assert event4.fields.created_at.value == "2024-01-15T10:30:00"
+```
+
+### Example 16: Using NumericSpec with Type Coercion
+
+```python
+from cobjectric import BaseModel
+from cobjectric.specs import NumericSpec
+
+class Person(BaseModel):
+    age: int = NumericSpec()  # Automatically coerces float to int
+    score: float = NumericSpec(max_difference=0.5)
+
+# JSON provides float for int field
+person = Person.from_dict({
+    "age": 30.0,  # float from JSON
+    "score": 85.5
+})
+
+assert person.fields.age.value == 30
+assert isinstance(person.fields.age.value, int)  # Coerced to int
+assert person.fields.score.value == 85.5
+```
+
 ## List Examples
 
-### Example 14: List Fields
+### Example 17: List Fields
 
 ```python
 class Team(BaseModel):
