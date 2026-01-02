@@ -188,6 +188,6 @@ If you use Cobjectric in your research or projects, please consider citing it:
   publisher = {GitHub},
   journal = {GitHub repository},
   howpublished = {\url{https://github.com/nigiva/cobjectric}},
-  version = {2.1.1}
+  version = {3.0.0}
 }
 ```
