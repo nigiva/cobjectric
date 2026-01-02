@@ -759,7 +759,7 @@ def test_datetime_similarity_invalid_max_difference() -> None:
 
     from datetime import timedelta
 
-    from cobjectric.similarities import datetime_similarity_factory
+    from cobjectric.similarity import datetime_similarity_factory
 
     with pytest.raises(ValueError, match="max_difference must be > 0"):
         datetime_similarity_factory(max_difference=timedelta(seconds=0))
@@ -771,7 +771,7 @@ def test_datetime_similarity_invalid_max_difference() -> None:
 def test_datetime_similarity_none_values() -> None:
     """Test datetime_similarity with None values."""
 
-    from cobjectric.similarities import datetime_similarity_factory
+    from cobjectric.similarity import datetime_similarity_factory
 
     similarity = datetime_similarity_factory()
     assert similarity(None, "2024-01-15T10:30:00Z") == 0.0
@@ -782,7 +782,7 @@ def test_datetime_similarity_none_values() -> None:
 def test_datetime_similarity_non_string_values() -> None:
     """Test datetime_similarity with non-string values."""
 
-    from cobjectric.similarities import datetime_similarity_factory
+    from cobjectric.similarity import datetime_similarity_factory
 
     similarity = datetime_similarity_factory()
     assert similarity(123, "2024-01-15T10:30:00Z") == 0.0
@@ -792,7 +792,7 @@ def test_datetime_similarity_non_string_values() -> None:
 def test_datetime_similarity_invalid_format() -> None:
     """Test datetime_similarity with invalid datetime format."""
 
-    from cobjectric.similarities import datetime_similarity_factory
+    from cobjectric.similarity import datetime_similarity_factory
 
     similarity = datetime_similarity_factory()
     assert similarity("invalid", "2024-01-15T10:30:00Z") == 0.0
@@ -804,7 +804,7 @@ def test_datetime_similarity_datetime_object() -> None:
 
     from datetime import datetime
 
-    from cobjectric.similarities import datetime_similarity_factory
+    from cobjectric.similarity import datetime_similarity_factory
 
     similarity = datetime_similarity_factory()
     dt1 = datetime(2024, 1, 15, 10, 30, 0)
@@ -816,11 +816,11 @@ def test_datetime_similarity_datetime_object() -> None:
 
 
 def test_datetime_similarity_parse_datetime_none() -> None:
-    """Test that parse_datetime handles None correctly (covers line 175)."""
+    """Test that parse_datetime handles None correctly."""
 
-    from cobjectric.similarities import datetime_similarity_factory
+    from cobjectric.similarity import datetime_similarity_factory
 
     similarity = datetime_similarity_factory()
-    # This should call parse_datetime with None, which returns None at line 175
+    # This should call parse_datetime with None, which returns None
     result = similarity(None, "2024-01-15T10:30:00Z")
     assert result == 0.0  # Because dt_a is None

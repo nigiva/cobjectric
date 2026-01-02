@@ -3,19 +3,19 @@ import typing as t
 import pytest
 
 from cobjectric import (
+    AggregatedFieldResult,
+    AggregatedFieldResultCollection,
+    AggregatedModelResult,
     BaseModel,
     DuplicateFillRateFuncError,
-    FillRateAggregatedFieldCollection,
-    FillRateAggregatedFieldResult,
-    FillRateAggregatedModelResult,
-    FillRateFieldResult,
-    FillRateListResult,
-    FillRateModelResult,
-    FillRateNestedListAggregatedResult,
+    FieldResult,
     InvalidAggregatedFieldError,
     InvalidFillRateValueError,
     InvalidWeightError,
+    ListResult,
     MissingValue,
+    ModelResult,
+    NestedListAggregatedResult,
     Spec,
     fill_rate_func,
 )
@@ -200,7 +200,7 @@ def test_fill_rate_boundary_values() -> None:
 
 
 def test_compute_fill_rate_returns_model_result() -> None:
-    """Test that compute_fill_rate returns FillRateModelResult."""
+    """Test that compute_fill_rate returns ModelResult."""
 
     class Person(BaseModel):
         name: str
@@ -209,11 +209,11 @@ def test_compute_fill_rate_returns_model_result() -> None:
     person = Person(name="John Doe", age=30)
     result = person.compute_fill_rate()
 
-    assert isinstance(result, FillRateModelResult)
+    assert isinstance(result, ModelResult)
 
 
 def test_fill_rate_field_access() -> None:
-    """Test that result.fields.name returns FillRateFieldResult."""
+    """Test that result.fields.name returns FieldResult."""
 
     class Person(BaseModel):
         name: str
@@ -222,7 +222,7 @@ def test_fill_rate_field_access() -> None:
     person = Person(name="John Doe", age=30)
     result = person.compute_fill_rate()
 
-    assert isinstance(result.fields.name, FillRateFieldResult)
+    assert isinstance(result.fields.name, FieldResult)
     assert result.fields.name.value == 1.0
 
 
@@ -419,7 +419,7 @@ def test_fill_rate_quantile_0() -> None:
 
 
 def test_fill_rate_nested_model() -> None:
-    """Test that nested model returns FillRateModelResult in fields."""
+    """Test that nested model returns ModelResult in fields."""
 
     class Address(BaseModel):
         street: str
@@ -437,10 +437,10 @@ def test_fill_rate_nested_model() -> None:
     )
     result = person.compute_fill_rate()
 
-    assert isinstance(result.fields.name, FillRateFieldResult)
-    assert isinstance(result.fields.address, FillRateModelResult)
-    assert isinstance(result.fields.address.fields.street, FillRateFieldResult)
-    assert isinstance(result.fields.address.fields.city, FillRateFieldResult)
+    assert isinstance(result.fields.name, FieldResult)
+    assert isinstance(result.fields.address, ModelResult)
+    assert isinstance(result.fields.address.fields.street, FieldResult)
+    assert isinstance(result.fields.address.fields.city, FieldResult)
 
 
 def test_fill_rate_deeply_nested() -> None:
@@ -469,13 +469,11 @@ def test_fill_rate_deeply_nested() -> None:
     )
     result = person.compute_fill_rate()
 
-    assert isinstance(result.fields.name, FillRateFieldResult)
-    assert isinstance(result.fields.address, FillRateModelResult)
-    assert isinstance(result.fields.address.fields.street, FillRateFieldResult)
-    assert isinstance(result.fields.address.fields.country, FillRateModelResult)
-    assert isinstance(
-        result.fields.address.fields.country.fields.name, FillRateFieldResult
-    )
+    assert isinstance(result.fields.name, FieldResult)
+    assert isinstance(result.fields.address, ModelResult)
+    assert isinstance(result.fields.address.fields.street, FieldResult)
+    assert isinstance(result.fields.address.fields.country, ModelResult)
+    assert isinstance(result.fields.address.fields.country.fields.name, FieldResult)
 
 
 def test_fill_rate_nested_missing_model() -> None:
@@ -493,7 +491,7 @@ def test_fill_rate_nested_missing_model() -> None:
     result = person.compute_fill_rate()
 
     assert result.fields.name.value == 1.0
-    assert isinstance(result.fields.address, FillRateModelResult)
+    assert isinstance(result.fields.address, ModelResult)
     assert result.fields.address.fields.street.value == 0.0
     assert result.fields.address.fields.city.value == 0.0
 
@@ -507,7 +505,7 @@ def test_fill_rate_empty_model() -> None:
     instance = EmptyModel()
     result = instance.compute_fill_rate()
 
-    assert isinstance(result, FillRateModelResult)
+    assert isinstance(result, ModelResult)
     assert result.mean() == 0.0  # No fields, mean is 0
     assert result.max() == 0.0  # No fields, max is 0
     assert result.min() == 0.0  # No fields, min is 0
@@ -588,7 +586,7 @@ def test_fill_rate_int_return_value() -> None:
 
 
 def test_fill_rate_repr() -> None:
-    """Test that FillRateFieldResult and FillRateModelResult have proper repr."""
+    """Test that FieldResult and ModelResult have proper repr."""
 
     class Person(BaseModel):
         name: str
@@ -596,8 +594,8 @@ def test_fill_rate_repr() -> None:
     person = Person(name="John")
     result = person.compute_fill_rate()
 
-    assert "FillRateFieldResult" in repr(result.fields.name)
-    assert "FillRateModelResult" in repr(result)
+    assert "FieldResult" in repr(result.fields.name)
+    assert "ModelResult" in repr(result)
 
 
 def test_fill_rate_field_access_error() -> None:
@@ -631,7 +629,7 @@ def test_fill_rate_statistics_with_single_value() -> None:
 
 
 def test_fill_rate_field_collection_iter() -> None:
-    """Test that FillRateFieldCollection can be iterated."""
+    """Test that FieldResultCollection can be iterated."""
 
     class Person(BaseModel):
         name: str
@@ -642,7 +640,7 @@ def test_fill_rate_field_collection_iter() -> None:
 
     fields_list = list(result.fields)
     assert len(fields_list) == 2
-    assert all(isinstance(f, FillRateFieldResult) for f in fields_list)
+    assert all(isinstance(f, FieldResult) for f in fields_list)
 
 
 def test_fill_rate_collect_all_values_recursive() -> None:
@@ -1076,7 +1074,7 @@ def test_fill_rate_field_collection_resolve_path_basemodel_type() -> None:
 
     # Access nested field in fill rate result
     street_result = result["address.street"]
-    assert isinstance(street_result, FillRateFieldResult)
+    assert isinstance(street_result, FieldResult)
     assert street_result.value == 1.0
 
 
@@ -1166,7 +1164,7 @@ def test_fill_rate_list_primitive_with_weight() -> None:
 
 
 def test_fill_rate_list_basemodel_returns_list_result() -> None:
-    """Test that list[BaseModel] returns FillRateListResult."""
+    """Test that list[BaseModel] returns ListResult."""
 
     class Item(BaseModel):
         name: str
@@ -1184,12 +1182,12 @@ def test_fill_rate_list_basemodel_returns_list_result() -> None:
     )
     result = order.compute_fill_rate()
 
-    assert isinstance(result.fields.items, FillRateListResult)
+    assert isinstance(result.fields.items, ListResult)
     assert len(result.fields.items) == 1
 
 
 def test_fill_rate_list_basemodel_getitem() -> None:
-    """Test that FillRateListResult supports __getitem__."""
+    """Test that ListResult supports __getitem__."""
 
     class Item(BaseModel):
         name: str
@@ -1208,14 +1206,14 @@ def test_fill_rate_list_basemodel_getitem() -> None:
     )
     result = order.compute_fill_rate()
 
-    assert isinstance(result.fields.items[0], FillRateModelResult)
-    assert isinstance(result.fields.items[1], FillRateModelResult)
+    assert isinstance(result.fields.items[0], ModelResult)
+    assert isinstance(result.fields.items[1], ModelResult)
     assert result.fields.items[0].fields.name.value == 1.0
     assert result.fields.items[1].fields.name.value == 1.0
 
 
 def test_fill_rate_list_basemodel_len() -> None:
-    """Test that FillRateListResult supports len()."""
+    """Test that ListResult supports len()."""
 
     class Item(BaseModel):
         name: str
@@ -1238,7 +1236,7 @@ def test_fill_rate_list_basemodel_len() -> None:
 
 
 def test_fill_rate_list_basemodel_iter() -> None:
-    """Test that FillRateListResult supports iteration."""
+    """Test that ListResult supports iteration."""
 
     class Item(BaseModel):
         name: str
@@ -1258,11 +1256,11 @@ def test_fill_rate_list_basemodel_iter() -> None:
 
     items_list = list(result.fields.items)
     assert len(items_list) == 2
-    assert all(isinstance(item, FillRateModelResult) for item in items_list)
+    assert all(isinstance(item, ModelResult) for item in items_list)
 
 
 def test_fill_rate_list_basemodel_empty() -> None:
-    """Test that empty list[BaseModel] returns FillRateListResult with empty items."""
+    """Test that empty list[BaseModel] returns ListResult with empty items."""
 
     class Item(BaseModel):
         name: str
@@ -1273,13 +1271,13 @@ def test_fill_rate_list_basemodel_empty() -> None:
     order = Order.from_dict({"items": []})
     result = order.compute_fill_rate()
 
-    assert isinstance(result.fields.items, FillRateListResult)
+    assert isinstance(result.fields.items, ListResult)
     assert len(result.fields.items) == 0
     assert result.fields.items.mean() == 0.0
 
 
 def test_fill_rate_list_basemodel_missing() -> None:
-    """Test that MissingValue list[BaseModel] returns FillRateListResult with empty items."""
+    """Test that MissingValue list[BaseModel] returns ListResult with empty items."""
 
     class Item(BaseModel):
         name: str
@@ -1291,13 +1289,13 @@ def test_fill_rate_list_basemodel_missing() -> None:
     order = Order(customer="John")
     result = order.compute_fill_rate()
 
-    assert isinstance(result.fields.items, FillRateListResult)
+    assert isinstance(result.fields.items, ListResult)
     assert len(result.fields.items) == 0
     assert result.fields.items.mean() == 0.0
 
 
 def test_fill_rate_list_basemodel_item_access() -> None:
-    """Test accessing individual items from FillRateListResult."""
+    """Test accessing individual items from ListResult."""
 
     class Item(BaseModel):
         name: str
@@ -1323,7 +1321,7 @@ def test_fill_rate_list_basemodel_item_access() -> None:
 
 
 def test_fill_rate_list_basemodel_mean() -> None:
-    """Test that FillRateListResult.mean() calculates mean across all items."""
+    """Test that ListResult.mean() calculates mean across all items."""
 
     class Item(BaseModel):
         name: str
@@ -1368,19 +1366,15 @@ def test_fill_rate_list_aggregated_field_access() -> None:
     )
     result = order.compute_fill_rate()
 
+    assert isinstance(result.fields.items.aggregated_fields.name, AggregatedFieldResult)
     assert isinstance(
-        result.fields.items.aggregated_fields.name, FillRateAggregatedFieldResult
-    )
-    assert isinstance(
-        result.fields.items.aggregated_fields.price, FillRateAggregatedFieldResult
+        result.fields.items.aggregated_fields.price, AggregatedFieldResult
     )
 
     # Test aggregated_fields API (recommended)
+    assert isinstance(result.fields.items.aggregated_fields.name, AggregatedFieldResult)
     assert isinstance(
-        result.fields.items.aggregated_fields.name, FillRateAggregatedFieldResult
-    )
-    assert isinstance(
-        result.fields.items.aggregated_fields.price, FillRateAggregatedFieldResult
+        result.fields.items.aggregated_fields.price, AggregatedFieldResult
     )
 
 
@@ -1554,23 +1548,23 @@ def test_fill_rate_list_aggregated_nested_model() -> None:
     result = order.compute_fill_rate()
 
     assert isinstance(
-        result.fields.items.aggregated_fields.address, FillRateAggregatedModelResult
+        result.fields.items.aggregated_fields.address, AggregatedModelResult
     )
     assert isinstance(
         result.fields.items.aggregated_fields.address.city,
-        FillRateAggregatedFieldResult,
+        AggregatedFieldResult,
     )
     assert result.fields.items.aggregated_fields.address.city.values == [1.0, 1.0]
     assert result.fields.items.aggregated_fields.address.street.values == [1.0, 0.0]
 
     # Test aggregated_fields API (recommended)
     assert isinstance(
-        result.fields.items.aggregated_fields.address, FillRateAggregatedModelResult
+        result.fields.items.aggregated_fields.address, AggregatedModelResult
     )
-    # FillRateAggregatedModelResult uses __getattr__ directly, not aggregated_fields
+    # AggregatedModelResult uses __getattr__ directly, not aggregated_fields
     assert isinstance(
         result.fields.items.aggregated_fields.address.city,
-        FillRateAggregatedFieldResult,
+        AggregatedFieldResult,
     )
     assert result.fields.items.aggregated_fields.address.city.values == [1.0, 1.0]
     assert result.fields.items.aggregated_fields.address.street.values == [1.0, 0.0]
@@ -1722,10 +1716,10 @@ def test_fill_rate_list_aggregated_nested_list() -> None:
     )
     result = order.compute_fill_rate()
 
-    # Access nested list aggregated - returns FillRateNestedListAggregatedResult
+    # Access nested list aggregated - returns NestedListAggregatedResult
     assert isinstance(
         result.fields.items.aggregated_fields.subitems,
-        FillRateNestedListAggregatedResult,
+        NestedListAggregatedResult,
     )
     # Each item's subitems list has mean=1.0 (all fields filled)
     # So values should be [1.0, 1.0] (one value per item)
@@ -1750,7 +1744,7 @@ def test_fill_rate_list_aggregated_model_empty() -> None:
 
     # Empty list should return empty aggregated field result
     assert isinstance(
-        result.fields.items.aggregated_fields.address, FillRateAggregatedFieldResult
+        result.fields.items.aggregated_fields.address, AggregatedFieldResult
     )
     assert result.fields.items.aggregated_fields.address.values == []
     assert result.fields.items.aggregated_fields.address.mean() == 0.0
@@ -1759,7 +1753,7 @@ def test_fill_rate_list_aggregated_model_empty() -> None:
 
 
 def test_fill_rate_list_aggregated_model_stats() -> None:
-    """Test that FillRateAggregatedModelResult stats work."""
+    """Test that AggregatedModelResult stats work."""
 
     class Address(BaseModel):
         city: str = Spec(fill_rate_func=lambda x: 0.5 if x == "NYC" else 1.0)
@@ -1785,7 +1779,7 @@ def test_fill_rate_list_aggregated_model_stats() -> None:
     # address.city values: [0.5, 1.0, 1.0]
     # address mean per item: [0.5, 1.0, 1.0]
     assert isinstance(
-        result.fields.items.aggregated_fields.address, FillRateAggregatedModelResult
+        result.fields.items.aggregated_fields.address, AggregatedModelResult
     )
     assert result.fields.items.aggregated_fields.address.mean() == pytest.approx(
         0.8333, abs=0.01
@@ -1795,7 +1789,7 @@ def test_fill_rate_list_aggregated_model_stats() -> None:
 
 
 def test_fill_rate_list_aggregated_model_std_var() -> None:
-    """Test that FillRateAggregatedModelResult std and var work."""
+    """Test that AggregatedModelResult std and var work."""
 
     class Address(BaseModel):
         city: str = Spec(fill_rate_func=lambda x: 0.3 if x == "A" else 0.8)
@@ -1819,7 +1813,7 @@ def test_fill_rate_list_aggregated_model_std_var() -> None:
 
     # address mean per item: [0.3, 0.8, 0.8]
     assert isinstance(
-        result.fields.items.aggregated_fields.address, FillRateAggregatedModelResult
+        result.fields.items.aggregated_fields.address, AggregatedModelResult
     )
     means = [0.3, 0.8, 0.8]
     mean_val = sum(means) / len(means)
@@ -1833,7 +1827,7 @@ def test_fill_rate_list_aggregated_model_std_var() -> None:
 
 
 def test_fill_rate_list_aggregated_model_single_item() -> None:
-    """Test that FillRateAggregatedModelResult works with single item."""
+    """Test that AggregatedModelResult works with single item."""
 
     class Address(BaseModel):
         city: str
@@ -1856,7 +1850,7 @@ def test_fill_rate_list_aggregated_model_single_item() -> None:
 
     # Single item should work
     assert isinstance(
-        result.fields.items.aggregated_fields.address, FillRateAggregatedModelResult
+        result.fields.items.aggregated_fields.address, AggregatedModelResult
     )
     assert result.fields.items.aggregated_fields.address.mean() == 1.0
     assert (
@@ -1868,7 +1862,7 @@ def test_fill_rate_list_aggregated_model_single_item() -> None:
 
 
 def test_fill_rate_list_result_value_property() -> None:
-    """Test that FillRateListResult.value property works."""
+    """Test that ListResult.value property works."""
 
     class Item(BaseModel):
         name: str
@@ -1891,7 +1885,7 @@ def test_fill_rate_list_result_value_property() -> None:
 
 
 def test_fill_rate_list_result_empty_all_values() -> None:
-    """Test FillRateListResult when all items have no values."""
+    """Test ListResult when all items have no values."""
 
     class EmptyItem(BaseModel):
         pass
@@ -1914,7 +1908,7 @@ def test_fill_rate_list_result_empty_all_values() -> None:
 
 
 def test_fill_rate_list_result_zero_weight() -> None:
-    """Test FillRateListResult when all weights are zero."""
+    """Test ListResult when all weights are zero."""
 
     class Item(BaseModel):
         name: str = Spec(fill_rate_weight=0.0)
@@ -1962,29 +1956,29 @@ def test_fill_rate_list_aggregated_nested_model_access() -> None:
 
     # Access nested model through aggregated
     assert isinstance(
-        result.fields.items.aggregated_fields.address, FillRateAggregatedModelResult
+        result.fields.items.aggregated_fields.address, AggregatedModelResult
     )
     # Then access field of nested model
     assert isinstance(
         result.fields.items.aggregated_fields.address.city,
-        FillRateAggregatedFieldResult,
+        AggregatedFieldResult,
     )
     assert result.fields.items.aggregated_fields.address.city.values == [1.0, 1.0]
 
 
 def test_fill_rate_aggregated_model_empty_items_direct() -> None:
-    """Test FillRateAggregatedModelResult with empty _items list directly."""
+    """Test AggregatedModelResult with empty _items list directly."""
 
-    from cobjectric.fill_rate import FillRateAggregatedModelResult
+    from cobjectric.results import AggregatedModelResult
 
-    empty_aggregated = FillRateAggregatedModelResult(_items=[])
+    empty_aggregated = AggregatedModelResult(_items=[])
     assert empty_aggregated.mean() == 0.0
     assert empty_aggregated.max() == 0.0
     assert empty_aggregated.min() == 0.0
 
 
 def test_fill_rate_model_result_with_list_collects_values() -> None:
-    """Test that FillRateModelResult._collect_all_values includes FillRateListResult."""
+    """Test that ModelResult._collect_all_values includes ListResult."""
 
     class Item(BaseModel):
         name: str
@@ -2012,7 +2006,7 @@ def test_fill_rate_model_result_with_list_collects_values() -> None:
 
 
 def test_fill_rate_model_result_with_list_collects_values_and_weights() -> None:
-    """Test that FillRateModelResult._collect_all_values_and_weights includes FillRateListResult."""
+    """Test that ModelResult._collect_all_values_and_weights includes ListResult."""
 
     class Item(BaseModel):
         name: str = Spec(fill_rate_weight=2.0)
@@ -2073,10 +2067,10 @@ def test_fill_rate_list_aggregated_nested_list_explicit() -> None:
     )
     result = order.compute_fill_rate()
 
-    # Access nested list through aggregated - should return FillRateNestedListAggregatedResult
+    # Access nested list through aggregated - should return NestedListAggregatedResult
     assert isinstance(
         result.fields.items.aggregated_fields.subitems,
-        FillRateNestedListAggregatedResult,
+        NestedListAggregatedResult,
     )
     # Each item's subitems list has mean=1.0, so values should be [1.0, 1.0]
     assert result.fields.items.aggregated_fields.subitems.values == [1.0, 1.0]
@@ -2302,7 +2296,7 @@ def test_field_collection_cannot_index_non_list_field():
 
 
 def test_fill_rate_list_nested_list_aggregation():
-    """Test aggregation of nested lists in FillRateListResult."""
+    """Test aggregation of nested lists in ListResult."""
 
     class SubItem(BaseModel):
         value: str
@@ -2326,7 +2320,7 @@ def test_fill_rate_list_nested_list_aggregation():
 
     # Access aggregated nested list
     subitems_agg = result.fields.items.aggregated_fields.subitems
-    assert isinstance(subitems_agg, FillRateNestedListAggregatedResult)
+    assert isinstance(subitems_agg, NestedListAggregatedResult)
     # First item has 2 subitems (mean=1.0), second has 1 (mean=1.0)
     assert subitems_agg.values == [1.0, 1.0]
 
@@ -2388,7 +2382,7 @@ def test_fill_rate_list_basemodel_nested_aggregation_complete():
 
     # Access aggregated nested lists to exercise all paths
     subitems_agg = result.fields.items.aggregated_fields.subitems
-    assert isinstance(subitems_agg, FillRateNestedListAggregatedResult)
+    assert isinstance(subitems_agg, NestedListAggregatedResult)
     assert subitems_agg.values == [1.0, 1.0, 1.0]
     assert subitems_agg.mean() == 1.0
     assert subitems_agg.min() == 1.0
@@ -2397,10 +2391,10 @@ def test_fill_rate_list_basemodel_nested_aggregation_complete():
 
 def test_fill_rate_list_aggregated_nested_model_returns_aggregated_model_result():
     """Test that accessing a nested model field via aggregated access
-    returns FillRateAggregatedModelResult.
+    returns AggregatedModelResult.
 
     When accessing a nested model field through aggregated_fields,
-    it should return FillRateAggregatedModelResult containing all
+    it should return AggregatedModelResult containing all
     nested model results.
     """
 
@@ -2427,13 +2421,13 @@ def test_fill_rate_list_aggregated_nested_model_returns_aggregated_model_result(
     result = order.compute_fill_rate()
 
     # Access the nested model via aggregated access
-    # This should return FillRateAggregatedModelResult
+    # This should return AggregatedModelResult
     address_agg = result.fields.items.aggregated_fields.address
-    assert isinstance(address_agg, FillRateAggregatedModelResult)
+    assert isinstance(address_agg, AggregatedModelResult)
 
     # Access nested field within the aggregated model result
     city_agg = address_agg.city
-    assert isinstance(city_agg, FillRateAggregatedFieldResult)
+    assert isinstance(city_agg, AggregatedFieldResult)
     assert city_agg.values == [1.0, 1.0]
 
 
@@ -2534,7 +2528,7 @@ def test_field_collection_cannot_index_on_primitive_in_list():
 
 
 def test_fill_rate_aggregated_nested_model_via_list():
-    """Test FillRateListAggregatedProxy.__getattr__ returns FillRateAggregatedModelResult."""
+    """Test FillRateListAggregatedProxy.__getattr__ returns AggregatedModelResult."""
 
     class Address(BaseModel):
         city: str
@@ -2560,15 +2554,15 @@ def test_fill_rate_aggregated_nested_model_via_list():
     result = company.compute_fill_rate()
 
     # Access nested model field through aggregated access
-    # employees.address should return FillRateAggregatedModelResult
+    # employees.address should return AggregatedModelResult
     employees_list = result.fields.employees
     # Use aggregated_fields access
     address_agg = employees_list.aggregated_fields.address
-    assert isinstance(address_agg, FillRateAggregatedModelResult)
+    assert isinstance(address_agg, AggregatedModelResult)
 
     # Access field within aggregated model result
     city_agg = address_agg.city
-    assert isinstance(city_agg, FillRateAggregatedFieldResult)
+    assert isinstance(city_agg, AggregatedFieldResult)
     assert city_agg.values == [1.0, 1.0, 1.0]
     assert city_agg.mean() == 1.0
 
@@ -2598,17 +2592,17 @@ def test_fill_rate_aggregated_nested_list_in_list():
     result = catalog.compute_fill_rate()
 
     # Access nested list through aggregated access
-    # items.tags should return FillRateNestedListAggregatedResult with mean values
+    # items.tags should return NestedListAggregatedResult with mean values
     items_list = result.fields.items
     # Use aggregated_fields access
     tags_agg = items_list.aggregated_fields.tags
-    assert isinstance(tags_agg, FillRateNestedListAggregatedResult)
+    assert isinstance(tags_agg, NestedListAggregatedResult)
     # Each item's tags list has mean fill rate of 1.0
     assert tags_agg.values == [1.0, 1.0]
 
 
 def test_repr_aggregated_field_collection() -> None:
-    """Test __repr__ of FillRateAggregatedFieldCollection."""
+    """Test __repr__ of AggregatedFieldResultCollection."""
 
     class Item(BaseModel):
         name: str
@@ -2628,7 +2622,7 @@ def test_repr_aggregated_field_collection() -> None:
     result = order.compute_fill_rate()
 
     repr_str = repr(result.fields.items.aggregated_fields)
-    assert "FillRateAggregatedFieldCollection" in repr_str
+    assert "AggregatedFieldResultCollection" in repr_str
     assert "name=..." in repr_str
     assert "price=..." in repr_str
 
@@ -2662,7 +2656,7 @@ def test_invalid_aggregated_field_error() -> None:
 
 
 def test_nested_list_aggregated_result() -> None:
-    """Test FillRateNestedListAggregatedResult for nested lists."""
+    """Test NestedListAggregatedResult for nested lists."""
 
     class A(BaseModel):
         name: str
@@ -2686,11 +2680,11 @@ def test_nested_list_aggregated_result() -> None:
 
     # Access nested list through aggregated
     nested_agg = result.fields.b_list.aggregated_fields.items
-    assert isinstance(nested_agg, FillRateNestedListAggregatedResult)
+    assert isinstance(nested_agg, NestedListAggregatedResult)
 
     # Access fields in nested list
     names_agg = nested_agg.aggregated_fields.name
-    assert isinstance(names_agg, FillRateAggregatedFieldResult)
+    assert isinstance(names_agg, AggregatedFieldResult)
     assert names_agg.values == [1.0, 1.0, 1.0]
 
 
@@ -2785,7 +2779,7 @@ def test_deeply_nested_aggregated_fields() -> None:
     # Deeply nested access
     assert isinstance(
         result.fields.lb.aggregated_fields.items_list,
-        FillRateNestedListAggregatedResult,
+        NestedListAggregatedResult,
     )
     names = result.fields.lb.aggregated_fields.items_list.aggregated_fields.name
     assert names.values == [1.0, 1.0]
@@ -2812,7 +2806,7 @@ def test_repr_field_collection_elided() -> None:
 
 
 def test_fill_rate_field_collection_repr_elided() -> None:
-    """Test that FillRateFieldCollection repr is elided."""
+    """Test that FieldResultCollection repr is elided."""
 
     class Person(BaseModel):
         name: str
@@ -2822,7 +2816,7 @@ def test_fill_rate_field_collection_repr_elided() -> None:
     result = person.compute_fill_rate()
 
     repr_str = repr(result.fields)
-    assert "FillRateFieldCollection" in repr_str
+    assert "FieldResultCollection" in repr_str
     assert "name=..." in repr_str
     assert "age=..." in repr_str
     # Should not contain actual fill rate values
@@ -2831,7 +2825,7 @@ def test_fill_rate_field_collection_repr_elided() -> None:
 
 
 def test_nested_list_aggregated_empty() -> None:
-    """Test FillRateNestedListAggregatedResult with empty lists."""
+    """Test NestedListAggregatedResult with empty lists."""
 
     class A(BaseModel):
         name: str
@@ -2891,7 +2885,7 @@ def test_nested_list_aggregated_quantile() -> None:
 
 
 def test_nested_list_aggregated_repr() -> None:
-    """Test __repr__ of FillRateNestedListAggregatedResult."""
+    """Test __repr__ of NestedListAggregatedResult."""
 
     class A(BaseModel):
         name: str
@@ -2914,12 +2908,12 @@ def test_nested_list_aggregated_repr() -> None:
 
     nested_agg = result.fields.b_list.aggregated_fields.items
     repr_str = repr(nested_agg)
-    assert "FillRateNestedListAggregatedResult" in repr_str
+    assert "NestedListAggregatedResult" in repr_str
     assert "lists=2" in repr_str
 
 
 def test_aggregated_field_collection_invalid_field() -> None:
-    """Test that FillRateAggregatedFieldCollection raises error for invalid field."""
+    """Test that AggregatedFieldResultCollection raises error for invalid field."""
 
     class Item(BaseModel):
         name: str
@@ -2944,7 +2938,7 @@ def test_aggregated_field_collection_invalid_field() -> None:
 
 
 def test_aggregated_model_result_invalid_field() -> None:
-    """Test that FillRateAggregatedModelResult raises error for invalid field."""
+    """Test that AggregatedModelResult raises error for invalid field."""
 
     class Address(BaseModel):
         city: str
@@ -2969,7 +2963,7 @@ def test_aggregated_model_result_invalid_field() -> None:
 
     # Access nested model through aggregated
     address_agg = result.fields.items.aggregated_fields.address
-    assert isinstance(address_agg, FillRateAggregatedModelResult)
+    assert isinstance(address_agg, AggregatedModelResult)
 
     # Try to access invalid field
     with pytest.raises(InvalidAggregatedFieldError):
@@ -3039,7 +3033,7 @@ def test_nested_list_aggregated_var() -> None:
 
 
 def test_nested_list_aggregated_with_single_list() -> None:
-    """Test FillRateNestedListAggregatedResult with single list."""
+    """Test NestedListAggregatedResult with single list."""
 
     class A(BaseModel):
         score: float = Spec(fill_rate_func=lambda x: x / 100)
@@ -3097,11 +3091,11 @@ def test_nested_list_aggregated_quantile_invalid() -> None:
 
 
 def test_aggregated_model_result_empty() -> None:
-    """Test FillRateAggregatedModelResult with empty items."""
+    """Test AggregatedModelResult with empty items."""
 
-    from cobjectric.fill_rate import FillRateAggregatedModelResult
+    from cobjectric.results import AggregatedModelResult
 
-    empty_agg = FillRateAggregatedModelResult(_items=[])
+    empty_agg = AggregatedModelResult(_items=[])
 
     # Stats should return 0.0 for empty items
     assert empty_agg.mean() == 0.0
@@ -3110,7 +3104,7 @@ def test_aggregated_model_result_empty() -> None:
 
 
 def test_nested_list_aggregated_empty_lists() -> None:
-    """Test FillRateNestedListAggregatedResult with empty lists."""
+    """Test NestedListAggregatedResult with empty lists."""
 
     class A(BaseModel):
         score: float = Spec(fill_rate_func=lambda x: x / 100)
@@ -3165,7 +3159,7 @@ def test_nested_list_aggregated_quantile_empty_hierarchical() -> None:
 
 
 def test_aggregated_model_result_with_nested_lists() -> None:
-    """Test FillRateAggregatedModelResult correctly handles nested lists."""
+    """Test AggregatedModelResult correctly handles nested lists."""
 
     class Tag(BaseModel):
         name: str
@@ -3190,10 +3184,10 @@ def test_aggregated_model_result_with_nested_lists() -> None:
     items_agg = result.fields.items.aggregated_fields
     # Access nested model
     tags_nested = items_agg.tags
-    assert isinstance(tags_nested, FillRateNestedListAggregatedResult)
+    assert isinstance(tags_nested, NestedListAggregatedResult)
 
     # Try to access invalid field on aggregated model result
-    # This should be caught by FillRateAggregatedModelResult's validation
+    # This should be caught by AggregatedModelResult's validation
     # (when there are nested models)
 
 
@@ -3275,12 +3269,12 @@ def test_complex_nested_example_1() -> None:
     assert result.fields.skills.value == 1.0
 
     # Check list of models
-    assert isinstance(result.fields.experiences, FillRateListResult)
+    assert isinstance(result.fields.experiences, ListResult)
     assert len(result.fields.experiences) == 2
 
     # Check aggregated fields on list of models
     experiences_agg = result.fields.experiences.aggregated_fields
-    assert isinstance(experiences_agg, FillRateAggregatedFieldCollection)
+    assert isinstance(experiences_agg, AggregatedFieldResultCollection)
     assert experiences_agg.company.values == [1.0, 1.0]
     assert experiences_agg.title.values == [1.0, 1.0]
 
@@ -3310,7 +3304,7 @@ def test_complex_nested_example_2() -> None:
     result = order.compute_fill_rate()
 
     # Check list of models
-    assert isinstance(result.fields.items, FillRateListResult)
+    assert isinstance(result.fields.items, ListResult)
     assert len(result.fields.items) == 2
 
     # Check individual items
@@ -3324,12 +3318,12 @@ def test_complex_nested_example_2() -> None:
 
     # Check aggregated fields on list
     items_agg = result.fields.items.aggregated_fields
-    assert isinstance(items_agg, FillRateAggregatedFieldCollection)
+    assert isinstance(items_agg, AggregatedFieldResultCollection)
     assert items_agg.name.values == [1.0, 1.0]
 
     # Check aggregated nested model
     address_agg = items_agg.address
-    assert isinstance(address_agg, FillRateAggregatedModelResult)
+    assert isinstance(address_agg, AggregatedModelResult)
     assert address_agg.city.values == [1.0, 1.0]
     assert address_agg.street.values == [1.0, 0.0]
 
@@ -3361,11 +3355,11 @@ def test_complex_nested_example_3() -> None:
 
     # Check aggregated list of nested lists
     lb_agg = result.fields.lb.aggregated_fields
-    assert isinstance(lb_agg, FillRateAggregatedFieldCollection)
+    assert isinstance(lb_agg, AggregatedFieldResultCollection)
 
     # Access nested list through aggregated
     items_list_nested = lb_agg.items_list
-    assert isinstance(items_list_nested, FillRateNestedListAggregatedResult)
+    assert isinstance(items_list_nested, NestedListAggregatedResult)
     # Two lists with 1 item each, so values are [1.0, 1.0]
     assert len(items_list_nested._lists) == 2
     assert items_list_nested.values == [1.0, 1.0]  # One value per list
@@ -3417,7 +3411,7 @@ def test_complex_nested_example_4() -> None:
     result = blog.compute_fill_rate()
 
     # Check top level
-    assert isinstance(result.fields.posts, FillRateListResult)
+    assert isinstance(result.fields.posts, ListResult)
     assert len(result.fields.posts) == 2
 
     # Check post 0
@@ -3437,22 +3431,22 @@ def test_complex_nested_example_4() -> None:
     # Aggregated access
     posts_agg = result.fields.posts.aggregated_fields
     authors_nested = posts_agg.authors
-    assert isinstance(authors_nested, FillRateNestedListAggregatedResult)
+    assert isinstance(authors_nested, NestedListAggregatedResult)
 
     # Access fields through nested list aggregation
     author_names_agg = authors_nested.aggregated_fields.name
-    assert isinstance(author_names_agg, FillRateAggregatedFieldResult)
+    assert isinstance(author_names_agg, AggregatedFieldResult)
     assert author_names_agg.values == [1.0, 1.0, 1.0]  # 3 authors total
 
     # Nested list aggregation for tags
     tags_nested = authors_nested.aggregated_fields.tags
-    assert isinstance(tags_nested, FillRateNestedListAggregatedResult)
+    assert isinstance(tags_nested, NestedListAggregatedResult)
     # Three lists: [2 tags], [] (missing), [1 tag] -> means [1.0, 0.0, 1.0]
     assert tags_nested.values == [1.0, 0.0, 1.0]
 
 
 def test_coverage_fill_rate_aggregated_field_collection_nested_list() -> None:
-    """Test coverage: FillRateAggregatedFieldCollection with nested lists (lines 727-731, 735-736)."""
+    """Test coverage: AggregatedFieldResultCollection with nested lists."""
 
     class A(BaseModel):
         name: str
@@ -3471,15 +3465,15 @@ def test_coverage_fill_rate_aggregated_field_collection_nested_list() -> None:
     )
     result = c.compute_fill_rate()
 
-    # Access nested list through aggregated - this triggers lines 727-731, 735-736
+    # Access nested list through aggregated
     lb_agg = result.fields.lb.aggregated_fields
     items_list_nested = lb_agg.items_list
-    assert isinstance(items_list_nested, FillRateNestedListAggregatedResult)
+    assert isinstance(items_list_nested, NestedListAggregatedResult)
     assert len(items_list_nested._lists) == 2
 
 
 def test_coverage_fill_rate_aggregated_field_collection_nested_model() -> None:
-    """Test coverage: FillRateAggregatedFieldCollection with nested models (line 739)."""
+    """Test coverage: AggregatedFieldResultCollection with nested models."""
 
     class Address(BaseModel):
         city: str
@@ -3498,38 +3492,38 @@ def test_coverage_fill_rate_aggregated_field_collection_nested_model() -> None:
     )
     result = company.compute_fill_rate()
 
-    # Access nested model through aggregated - this triggers line 739
+    # Access nested model through aggregated
     employees_agg = result.fields.employees.aggregated_fields
     address_agg = employees_agg.address
-    assert isinstance(address_agg, FillRateAggregatedModelResult)
+    assert isinstance(address_agg, AggregatedModelResult)
     assert address_agg.city.values == [1.0, 1.0]
 
 
 def test_coverage_nested_list_aggregated_result_empty_lists() -> None:
-    """Test coverage: FillRateNestedListAggregatedResult with empty lists (lines 871, 956, 977, 1005)."""
+    """Test coverage: NestedListAggregatedResult with empty lists."""
 
-    # Create an empty FillRateNestedListAggregatedResult
-    empty_result = FillRateNestedListAggregatedResult([], None)
+    # Create an empty NestedListAggregatedResult
+    empty_result = NestedListAggregatedResult([], None)
 
-    # Test mean() with empty lists (line 871)
+    # Test mean() with empty lists
     assert empty_result.mean() == 0.0
     assert empty_result.mean(hierarchical=True) == 0.0
 
-    # Test max() with empty lists (line 956)
+    # Test max() with empty lists
     assert empty_result.max() == 0.0
     assert empty_result.max(hierarchical=True) == 0.0
 
-    # Test min() with empty lists (line 977)
+    # Test min() with empty lists
     assert empty_result.min() == 0.0
     assert empty_result.min(hierarchical=True) == 0.0
 
-    # Test quantile() with empty lists (line 1005)
+    # Test quantile() with empty lists
     assert empty_result.quantile(0.5) == 0.0
     assert empty_result.quantile(0.5, hierarchical=True) == 0.0
 
 
 def test_coverage_nested_list_aggregated_result_zero_weight() -> None:
-    """Test coverage: FillRateNestedListAggregatedResult with zero weight (line 884)."""
+    """Test coverage: NestedListAggregatedResult with zero weight."""
 
     class ZeroWeightModel(BaseModel):
         name: str = Spec(fill_rate_weight=0.0)
@@ -3545,11 +3539,11 @@ def test_coverage_nested_list_aggregated_result_zero_weight() -> None:
     assert result.fields.items_list[0].fields.name.weight == 0.0
 
     # Create nested list result
-    nested_result = FillRateNestedListAggregatedResult(
+    nested_result = NestedListAggregatedResult(
         [result.fields.items_list], result.fields.items_list._element_type
     )
 
-    # This should trigger line 884: we have values but total_weight == 0.0
+    # We have values but total_weight == 0.0
     # The field has a value (1.0) but weight is 0.0
     # Collect values and weights to verify
     all_values, all_weights = nested_result._collect_all_values_and_weights()
@@ -3561,7 +3555,7 @@ def test_coverage_nested_list_aggregated_result_zero_weight() -> None:
 
 
 def test_coverage_nested_list_aggregated_result_std_single_value() -> None:
-    """Test coverage: FillRateNestedListAggregatedResult.std() with <= 1 value (line 913)."""
+    """Test coverage: NestedListAggregatedResult.std() with <= 1 value."""
 
     class A(BaseModel):
         name: str
@@ -3579,19 +3573,19 @@ def test_coverage_nested_list_aggregated_result_std_single_value() -> None:
 
     # Access nested list aggregation
     nested_result = result.fields.lb.aggregated_fields.items_list
-    assert isinstance(nested_result, FillRateNestedListAggregatedResult)
+    assert isinstance(nested_result, NestedListAggregatedResult)
 
-    # Test std() with single value (line 913)
+    # Test std() with single value
     # values = [1.0] (single item), so std should return 0.0
     assert nested_result.std(hierarchical=False) == 0.0
 
     # Test with empty values
-    empty_result = FillRateNestedListAggregatedResult([], None)
+    empty_result = NestedListAggregatedResult([], None)
     assert empty_result.std(hierarchical=False) == 0.0
 
 
 def test_coverage_nested_list_aggregated_result_var_multiple_values() -> None:
-    """Test coverage: FillRateNestedListAggregatedResult.var() with multiple values."""
+    """Test coverage: NestedListAggregatedResult.var() with multiple values."""
 
     class A(BaseModel):
         name: str
@@ -3613,7 +3607,7 @@ def test_coverage_nested_list_aggregated_result_var_multiple_values() -> None:
 
     # Access nested list aggregation
     nested_result = result.fields.lb.aggregated_fields.items_list
-    assert isinstance(nested_result, FillRateNestedListAggregatedResult)
+    assert isinstance(nested_result, NestedListAggregatedResult)
     assert len(nested_result._lists) == 2  # We have 2 lists
 
     # Test var() with multiple values
@@ -3629,7 +3623,7 @@ def test_coverage_nested_list_aggregated_result_var_multiple_values() -> None:
 
 
 def test_coverage_nested_list_aggregated_result_quantile_non_hierarchical() -> None:
-    """Test coverage: FillRateNestedListAggregatedResult.quantile() non-hierarchical (lines 1011, 1014)."""
+    """Test coverage: NestedListAggregatedResult.quantile() non-hierarchical."""
 
     class A(BaseModel):
         name: str
@@ -3641,33 +3635,33 @@ def test_coverage_nested_list_aggregated_result_quantile_non_hierarchical() -> N
     b = B(items_list=[A(name="test1"), A(name="test2"), A(name="test3")])
     result = b.compute_fill_rate()
 
-    nested_result = FillRateNestedListAggregatedResult(
+    nested_result = NestedListAggregatedResult(
         [result.fields.items_list], result.fields.items_list._element_type
     )
 
-    # Test quantile() with hierarchical=False (line 1011)
+    # Test quantile() with hierarchical=False
     q50 = nested_result.quantile(0.5, hierarchical=False)
     assert q50 == 1.0
 
-    # Test with empty values (line 1014)
-    empty_result = FillRateNestedListAggregatedResult([], None)
+    # Test with empty values
+    empty_result = NestedListAggregatedResult([], None)
     assert empty_result.quantile(0.5, hierarchical=False) == 0.0
 
 
 def test_coverage_fill_rate_aggregated_field_collection_empty_items() -> None:
-    """Test coverage: FillRateAggregatedFieldCollection._get_available_fields() with empty items (line 1075)."""
-    from cobjectric.fill_rate import FillRateAggregatedFieldCollection
+    """Test coverage: AggregatedFieldResultCollection._get_available_fields() with empty items."""
+    from cobjectric.results import AggregatedFieldResultCollection
 
-    # Create FillRateAggregatedFieldCollection with empty items
-    empty_collection = FillRateAggregatedFieldCollection([])
+    # Create AggregatedFieldResultCollection with empty items
+    empty_collection = AggregatedFieldResultCollection([])
 
-    # This should trigger line 1075 - return [] when _items is empty
+    # Return [] when _items is empty
     available_fields = empty_collection._get_available_fields()
     assert available_fields == []
 
 
 def test_coverage_fill_rate_list_result_collect_all_values() -> None:
-    """Test coverage: FillRateListResult._collect_all_values() (lines 1228-1231)."""
+    """Test coverage: ListResult._collect_all_values()."""
 
     class A(BaseModel):
         name: str
@@ -3684,7 +3678,7 @@ def test_coverage_fill_rate_list_result_collect_all_values() -> None:
     )
     result = b.compute_fill_rate()
 
-    # Test _collect_all_values() method (lines 1228-1231)
+    # Test _collect_all_values() method
     all_values = result.fields.items_list._collect_all_values()
     # Should collect all values from all fields of all items
     # Each item has 2 fields (name, age), each with value 1.0
@@ -3694,7 +3688,7 @@ def test_coverage_fill_rate_list_result_collect_all_values() -> None:
 
 
 def test_fill_rate_list_result_get_values() -> None:
-    """Test that FillRateListResult._get_values() returns all values via StatsMixin."""
+    """Test that ListResult._get_values() returns all values via StatsMixin."""
 
     class Item(BaseModel):
         name: str
@@ -3724,7 +3718,7 @@ def test_fill_rate_list_result_get_values() -> None:
 
 
 def test_coverage_aggregated_model_result_nested_model_branch() -> None:
-    """Test coverage: FillRateAggregatedModelResult.__getattr__ with nested model (lines 727-728, 739).
+    """Test coverage: AggregatedModelResult.__getattr__ with nested model.
 
     This tests the case where we access a nested model through an aggregated model result.
     Structure: list[X] -> X.address (model) -> address.details (model)
@@ -3752,20 +3746,20 @@ def test_coverage_aggregated_model_result_nested_model_branch() -> None:
     )
     result = company.compute_fill_rate()
 
-    # Step 1: Access aggregated_fields.address -> FillRateAggregatedModelResult
+    # Step 1: Access aggregated_fields.address -> AggregatedModelResult
     employees_agg = result.fields.employees.aggregated_fields
     address_agg = employees_agg.address
-    assert isinstance(address_agg, FillRateAggregatedModelResult)
+    assert isinstance(address_agg, AggregatedModelResult)
 
-    # Step 2: Access address_agg.details -> This triggers lines 727-728, 739
-    # because 'details' is a FillRateModelResult inside each Address
+    # Step 2: Access address_agg.details
+    # because 'details' is a ModelResult inside each Address
     details_agg = address_agg.details
-    assert isinstance(details_agg, FillRateAggregatedModelResult)
+    assert isinstance(details_agg, AggregatedModelResult)
     assert details_agg.zip_code.values == [1.0, 1.0]
 
 
 def test_coverage_aggregated_model_result_nested_list_branch() -> None:
-    """Test coverage: FillRateAggregatedModelResult.__getattr__ with nested list (lines 729-731, 735-736).
+    """Test coverage: AggregatedModelResult.__getattr__ with nested list.
 
     This tests the case where we access a nested list through an aggregated model result.
     Structure: list[X] -> X.address (model) -> address.tags (list)
@@ -3803,21 +3797,21 @@ def test_coverage_aggregated_model_result_nested_list_branch() -> None:
     )
     result = company.compute_fill_rate()
 
-    # Step 1: Access aggregated_fields.address -> FillRateAggregatedModelResult
+    # Step 1: Access aggregated_fields.address -> AggregatedModelResult
     employees_agg = result.fields.employees.aggregated_fields
     address_agg = employees_agg.address
-    assert isinstance(address_agg, FillRateAggregatedModelResult)
+    assert isinstance(address_agg, AggregatedModelResult)
 
-    # Step 2: Access address_agg.tags -> This triggers lines 729-731, 735-736
-    # because 'tags' is a FillRateListResult inside each Address
+    # Step 2: Access address_agg.tags
+    # because 'tags' is a ListResult inside each Address
     tags_nested = address_agg.tags
-    assert isinstance(tags_nested, FillRateNestedListAggregatedResult)
+    assert isinstance(tags_nested, NestedListAggregatedResult)
     # Two lists: [2 tags], [1 tag] -> means [1.0, 1.0]
     assert tags_nested.values == [1.0, 1.0]
 
 
 def test_coverage_nested_list_aggregated_result_quantile_empty_values() -> None:
-    """Test coverage: FillRateNestedListAggregatedResult.quantile() with empty values (lines 1011, 1014)."""
+    """Test coverage: NestedListAggregatedResult.quantile() with empty values."""
 
     class A(BaseModel):
         name: str
@@ -3839,14 +3833,14 @@ def test_coverage_nested_list_aggregated_result_quantile_empty_values() -> None:
 
     # Access nested list aggregation
     nested_result = result.fields.lb.aggregated_fields.items_list
-    assert isinstance(nested_result, FillRateNestedListAggregatedResult)
+    assert isinstance(nested_result, NestedListAggregatedResult)
 
-    # Test quantile() with hierarchical=False (line 1011)
+    # Test quantile() with hierarchical=False
     # This calls sorted(self.values) which gives us the flattened values
     q50 = nested_result.quantile(0.5, hierarchical=False)
     assert q50 == 1.0
 
-    # Test with empty nested list result (line 1014)
-    empty_result = FillRateNestedListAggregatedResult([], None)
+    # Test with empty nested list result
+    empty_result = NestedListAggregatedResult([], None)
     q50_empty = empty_result.quantile(0.5, hierarchical=False)
     assert q50_empty == 0.0

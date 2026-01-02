@@ -4,14 +4,18 @@ from dataclasses import dataclass, field
 
 from cobjectric.exceptions import InvalidWeightError
 from cobjectric.fill_rate import (
-    FillRateAccuracyFunc,
     FillRateFunc,
-    SimilarityFunc,
     not_missing_fill_rate,
+)
+from cobjectric.fill_rate_accuracy import (
+    FillRateAccuracyFunc,
     same_state_fill_rate_accuracy,
 )
 from cobjectric.list_compare import ListCompareStrategy
-from cobjectric.similarities import exact_similarity
+from cobjectric.similarity import (
+    SimilarityFunc,
+    exact_similarity,
+)
 
 if t.TYPE_CHECKING:
     from cobjectric.context import FieldContext

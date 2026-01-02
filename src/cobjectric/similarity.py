@@ -1,7 +1,12 @@
+from __future__ import annotations
+
 import typing as t
+from dataclasses import dataclass
 from datetime import datetime, timedelta
 
 from rapidfuzz import fuzz
+
+from cobjectric.exceptions import InvalidWeightError
 
 SimilarityFunc = t.Callable[[t.Any, t.Any], float]
 
@@ -216,3 +221,61 @@ def datetime_similarity_factory(
         return max(0.0, 1.0 - diff_seconds / max_diff_seconds)
 
     return datetime_similarity
+
+
+@dataclass
+class SimilarityFuncInfo:
+    """
+    Stores similarity_func info attached to a method.
+
+    Attributes:
+        field_patterns: Tuple of field names or glob patterns to match.
+        func: The similarity_func to apply.
+        weight: Weight for similarity computation (default: 1.0, must be >= 0.0).
+    """
+
+    field_patterns: tuple[str, ...]
+    func: SimilarityFunc
+    weight: float = 1.0
+
+
+def similarity_func(
+    *field_patterns: str,
+    weight: float = 1.0,
+) -> t.Callable[[SimilarityFunc], SimilarityFunc]:
+    """
+    Decorator to define a similarity_func for one or more fields.
+
+    Args:
+        *field_patterns: Field names or glob patterns (e.g., "name", "email", "name_*")
+        weight: Weight for similarity computation (default: 1.0, must be >= 0.0).
+
+    Returns:
+        Decorated function
+
+    Raises:
+        InvalidWeightError: If weight is negative (< 0.0).
+
+    Example:
+        ```python
+        class Person(BaseModel):
+            name: str
+            email: str
+
+            @similarity_func("name", "email", weight=2.0)
+            def similarity_name_email(x: t.Any, y: t.Any) -> float:
+                return 1.0 if x == y else 0.0
+        ```
+    """
+    if weight < 0.0:
+        raise InvalidWeightError(weight, "decorator", "similarity")
+
+    def decorator(func: SimilarityFunc) -> SimilarityFunc:
+        if not hasattr(func, "_similarity_funcs"):
+            func._similarity_funcs = []  # type: ignore[attr-defined]
+        func._similarity_funcs.append(  # type: ignore[attr-defined]
+            SimilarityFuncInfo(field_patterns, func, weight)
+        )
+        return func
+
+    return decorator

@@ -2,9 +2,9 @@ import pytest
 
 from cobjectric import (
     BaseModel,
-    FillRateListResult,
     InvalidListCompareStrategyError,
     ListCompareStrategy,
+    ListResult,
     Spec,
 )
 
@@ -38,7 +38,7 @@ def test_similarity_pairwise_default() -> None:
 
     result = order_got.compute_similarity(order_expected)
 
-    assert isinstance(result.fields.items, FillRateListResult)
+    assert isinstance(result.fields.items, ListResult)
     assert len(result.fields.items) == 2
     assert result.fields.items[0].fields.name.value == 1.0
     assert result.fields.items[0].fields.price.value == 1.0
@@ -75,7 +75,7 @@ def test_similarity_pairwise_explicit() -> None:
 
     result = order_got.compute_similarity(order_expected)
 
-    assert isinstance(result.fields.items, FillRateListResult)
+    assert isinstance(result.fields.items, ListResult)
     assert len(result.fields.items) == 2
     assert result.fields.items[0].fields.name.value == 1.0
     assert result.fields.items[0].fields.price.value == 1.0
@@ -110,7 +110,7 @@ def test_similarity_pairwise_different_lengths() -> None:
 
     result = order_got.compute_similarity(order_expected)
 
-    assert isinstance(result.fields.items, FillRateListResult)
+    assert isinstance(result.fields.items, ListResult)
     assert len(result.fields.items) == 1
     assert result.fields.items[0].fields.name.value == 1.0
 
@@ -144,7 +144,7 @@ def test_similarity_levenshtein_same_order() -> None:
 
     result = order_got.compute_similarity(order_expected)
 
-    assert isinstance(result.fields.items, FillRateListResult)
+    assert isinstance(result.fields.items, ListResult)
     assert len(result.fields.items) == 2
     assert result.fields.items[0].fields.name.value == 1.0
     assert result.fields.items[0].fields.price.value == 1.0
@@ -190,7 +190,7 @@ def test_similarity_levenshtein_with_insertion() -> None:
 
     result = order_got.compute_similarity(order_expected)
 
-    assert isinstance(result.fields.items, FillRateListResult)
+    assert isinstance(result.fields.items, ListResult)
     assert len(result.fields.items) == 2
     assert result.fields.items[0].fields.name.value == 1.0
     assert result.fields.items[1].fields.name.value == 1.0
@@ -235,7 +235,7 @@ def test_similarity_levenshtein_reversed_lists() -> None:
 
     result = order_got.compute_similarity(order_expected)
 
-    assert isinstance(result.fields.items, FillRateListResult)
+    assert isinstance(result.fields.items, ListResult)
     # Levenshtein can only align one item for reversed lists
     assert len(result.fields.items) == 1
     # The aligned item should have perfect similarity
@@ -271,7 +271,7 @@ def test_similarity_levenshtein_different_lengths() -> None:
 
     result = order_got.compute_similarity(order_expected)
 
-    assert isinstance(result.fields.items, FillRateListResult)
+    assert isinstance(result.fields.items, ListResult)
     assert len(result.fields.items) == 1
     assert result.fields.items[0].fields.name.value == 1.0
 
@@ -316,7 +316,7 @@ def test_similarity_optimal_assignment_basic() -> None:
 
     result = order_got.compute_similarity(order_expected)
 
-    assert isinstance(result.fields.items, FillRateListResult)
+    assert isinstance(result.fields.items, ListResult)
     assert len(result.fields.items) == 2
     assert result.fields.items[0].fields.name.value == 1.0
     assert result.fields.items[0].fields.price.value == 1.0
@@ -353,7 +353,7 @@ def test_similarity_optimal_assignment_different_lengths() -> None:
 
     result = order_got.compute_similarity(order_expected)
 
-    assert isinstance(result.fields.items, FillRateListResult)
+    assert isinstance(result.fields.items, ListResult)
     assert len(result.fields.items) == 2
 
 
@@ -386,7 +386,7 @@ def test_accuracy_pairwise_default() -> None:
 
     result = order_got.compute_fill_rate_accuracy(order_expected)
 
-    assert isinstance(result.fields.items, FillRateListResult)
+    assert isinstance(result.fields.items, ListResult)
     assert len(result.fields.items) == 2
     assert result.fields.items[0].fields.name.value == 1.0
     assert result.fields.items[0].fields.price.value == 1.0
@@ -423,7 +423,7 @@ def test_accuracy_pairwise_explicit() -> None:
 
     result = order_got.compute_fill_rate_accuracy(order_expected)
 
-    assert isinstance(result.fields.items, FillRateListResult)
+    assert isinstance(result.fields.items, ListResult)
     assert len(result.fields.items) == 2
     assert result.fields.items[0].fields.name.value == 1.0
     assert result.fields.items[0].fields.price.value == 1.0
@@ -460,7 +460,7 @@ def test_accuracy_levenshtein_same_order() -> None:
 
     result = order_got.compute_fill_rate_accuracy(order_expected)
 
-    assert isinstance(result.fields.items, FillRateListResult)
+    assert isinstance(result.fields.items, ListResult)
     assert len(result.fields.items) == 2
     assert result.fields.items[0].fields.name.value == 1.0
     assert result.fields.items[0].fields.price.value == 1.0
@@ -507,7 +507,7 @@ def test_accuracy_levenshtein_reversed() -> None:
 
     result = order_got.compute_fill_rate_accuracy(order_expected)
 
-    assert isinstance(result.fields.items, FillRateListResult)
+    assert isinstance(result.fields.items, ListResult)
     # For accuracy, all matches are equal (score 1.0) so it aligns both items
     assert len(result.fields.items) == 2
     # All accuracy values should be 1.0 since all fields are filled in both items
@@ -548,7 +548,7 @@ def test_accuracy_optimal_assignment_basic() -> None:
 
     result = order_got.compute_fill_rate_accuracy(order_expected)
 
-    assert isinstance(result.fields.items, FillRateListResult)
+    assert isinstance(result.fields.items, ListResult)
     assert len(result.fields.items) == 2
     assert result.fields.items[0].fields.name.value == 1.0
     assert result.fields.items[0].fields.price.value == 1.0
@@ -596,7 +596,7 @@ def test_list_compare_strategy_empty_lists() -> None:
 
     result = order_got.compute_similarity(order_expected)
 
-    assert isinstance(result.fields.items, FillRateListResult)
+    assert isinstance(result.fields.items, ListResult)
     assert len(result.fields.items) == 0
 
 
@@ -616,7 +616,7 @@ def test_list_compare_strategy_one_empty_list() -> None:
 
     result = order_got.compute_similarity(order_expected)
 
-    assert isinstance(result.fields.items, FillRateListResult)
+    assert isinstance(result.fields.items, ListResult)
     assert len(result.fields.items) == 0
 
 
@@ -634,7 +634,7 @@ def test_list_compare_strategy_missing_list() -> None:
 
     result = order_got.compute_similarity(order_expected)
 
-    assert isinstance(result.fields.items, FillRateListResult)
+    assert isinstance(result.fields.items, ListResult)
     assert len(result.fields.items) == 0
 
 
@@ -652,7 +652,7 @@ def test_list_compare_strategy_string_value() -> None:
 
     result = order_got.compute_similarity(order_expected)
 
-    assert isinstance(result.fields.items, FillRateListResult)
+    assert isinstance(result.fields.items, ListResult)
     assert len(result.fields.items) == 1
     assert result.fields.items[0].fields.name.value == 1.0
 
@@ -671,7 +671,7 @@ def test_list_compare_strategy_enum_value() -> None:
 
     result = order_got.compute_similarity(order_expected)
 
-    assert isinstance(result.fields.items, FillRateListResult)
+    assert isinstance(result.fields.items, ListResult)
     assert len(result.fields.items) == 1
     assert result.fields.items[0].fields.name.value == 1.0
 
@@ -739,7 +739,7 @@ def test_list_compare_strategy_nested_models() -> None:
 
     result = order_got.compute_similarity(order_expected)
 
-    assert isinstance(result.fields.items, FillRateListResult)
+    assert isinstance(result.fields.items, ListResult)
     assert len(result.fields.items) == 2
     assert result.fields.items[0].fields.name.value == 1.0
     assert result.fields.items[0].fields.address.fields.city.value == 1.0
@@ -779,7 +779,7 @@ def test_list_compare_strategy_nested_models_levenshtein_same_order() -> None:
 
     result = order_got.compute_similarity(order_expected)
 
-    assert isinstance(result.fields.items, FillRateListResult)
+    assert isinstance(result.fields.items, ListResult)
     assert len(result.fields.items) == 2
     assert result.fields.items[0].fields.name.value == 1.0
     assert result.fields.items[0].fields.address.fields.city.value == 1.0
@@ -818,7 +818,7 @@ def test_list_compare_strategy_aggregated_access() -> None:
 
     result = order_got.compute_similarity(order_expected)
 
-    assert isinstance(result.fields.items, FillRateListResult)
+    assert isinstance(result.fields.items, ListResult)
     assert len(result.fields.items) == 2
     assert result.fields.items.aggregated_fields.name.values == [1.0, 1.0]
     assert result.fields.items.aggregated_fields.price.values == [1.0, 1.0]
@@ -863,7 +863,7 @@ def test_list_compare_strategy_levenshtein_partial_match() -> None:
 
     result = order_got.compute_similarity(order_expected)
 
-    assert isinstance(result.fields.items, FillRateListResult)
+    assert isinstance(result.fields.items, ListResult)
     # Should align A-A and C-C (preserving order, skipping non-matching items)
     assert len(result.fields.items) == 2
     assert result.fields.items[0].fields.name.value == 1.0
@@ -901,7 +901,7 @@ def test_list_compare_strategy_optimal_assignment_partial_match() -> None:
 
     result = order_got.compute_similarity(order_expected)
 
-    assert isinstance(result.fields.items, FillRateListResult)
+    assert isinstance(result.fields.items, ListResult)
     # Should optimally match: A-A and B-B (both with similarity 1.0)
     assert len(result.fields.items) == 2
     # Both should have perfect similarity due to optimal matching
@@ -942,8 +942,8 @@ def test_optimal_assignment_scipy_import_error(monkeypatch: pytest.MonkeyPatch) 
     import builtins
     from unittest.mock import MagicMock
 
-    from cobjectric.fill_rate import FillRateModelResult
     from cobjectric.list_compare import align_optimal_assignment
+    from cobjectric.results import ModelResult
 
     original_import = builtins.__import__
 
@@ -963,7 +963,7 @@ def test_optimal_assignment_scipy_import_error(monkeypatch: pytest.MonkeyPatch) 
     got_list = [MagicMock()]
     expected_list = [MagicMock()]
 
-    def compute_sim(got: object, exp: object) -> FillRateModelResult:
+    def compute_sim(got: object, exp: object) -> ModelResult:
         return MagicMock(mean=lambda: 1.0)
 
     with pytest.raises(ImportError, match="scipy is required"):

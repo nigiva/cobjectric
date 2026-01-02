@@ -19,6 +19,9 @@ classifiers = [
 keywords = ["metrics", "json", "comparison", "machine-learning", "evaluation"]
 dependencies = ["rapidfuzz>=3.14.3", "scipy>=1.16.3"]
 
+[project.optional-dependencies]
+pandas = ["pandas>=2.0.0"]
+
 [project.urls]
 Homepage = "https://github.com/nigiva/cobjectric"
 Documentation = "https://cobjectric.nigiva.com"

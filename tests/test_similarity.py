@@ -3,18 +3,18 @@ import typing as t
 import pytest
 
 from cobjectric import (
+    AggregatedFieldResult,
     BaseModel,
     DuplicateSimilarityFuncError,
-    FillRateAggregatedFieldResult,
-    FillRateListResult,
-    FillRateModelResult,
-    InvalidFillRateValueError,
+    InvalidSimilarityValueError,
     InvalidWeightError,
+    ListResult,
     MissingValue,
+    ModelResult,
     Spec,
     similarity_func,
 )
-from cobjectric.similarities import (
+from cobjectric.similarity import (
     exact_similarity,
     fuzzy_similarity_factory,
     numeric_similarity_factory,
@@ -378,7 +378,7 @@ def test_similarity_nested_models() -> None:
     result = person_got.compute_similarity(person_expected)
 
     assert result.fields.name.value == 1.0
-    assert isinstance(result.fields.address, FillRateModelResult)
+    assert isinstance(result.fields.address, ModelResult)
     assert result.fields.address.fields.street.value == 1.0
     assert result.fields.address.fields.city.value == 1.0
 
@@ -410,7 +410,7 @@ def test_similarity_nested_different_values() -> None:
     result = person_got.compute_similarity(person_expected)
 
     assert result.fields.name.value == 1.0
-    assert isinstance(result.fields.address, FillRateModelResult)
+    assert isinstance(result.fields.address, ModelResult)
     assert result.fields.address.fields.street.value == 0.0
     assert result.fields.address.fields.city.value == 0.0
 
@@ -437,7 +437,7 @@ def test_similarity_nested_missing() -> None:
     result = person_got.compute_similarity(person_expected)
 
     assert result.fields.name.value == 1.0
-    assert isinstance(result.fields.address, FillRateModelResult)
+    assert isinstance(result.fields.address, ModelResult)
     # got missing, expected filled -> 0.0
     assert result.fields.address.fields.street.value == 0.0
     assert result.fields.address.fields.city.value == 0.0
@@ -460,7 +460,7 @@ def test_similarity_nested_both_missing() -> None:
     result = person_got.compute_similarity(person_expected)
 
     # Both missing -> similarity = 1.0 for all nested fields
-    assert isinstance(result.fields.address, FillRateModelResult)
+    assert isinstance(result.fields.address, ModelResult)
     assert result.fields.address.fields.street.value == 1.0
     assert result.fields.address.fields.city.value == 1.0
 
@@ -555,7 +555,7 @@ def test_similarity_list_basemodel_same_items() -> None:
     result = order_got.compute_similarity(order_expected)
 
     # Both have 2 items, all fields same -> similarity = 1.0 for all
-    assert isinstance(result.fields.items, FillRateListResult)
+    assert isinstance(result.fields.items, ListResult)
     assert len(result.fields.items) == 2
     assert result.fields.items[0].fields.name.value == 1.0
     assert result.fields.items[0].fields.price.value == 1.0
@@ -591,7 +591,7 @@ def test_similarity_list_basemodel_different_items() -> None:
     result = order_got.compute_similarity(order_expected)
 
     # Both have 2 items, all fields different -> similarity = 0.0 for all
-    assert isinstance(result.fields.items, FillRateListResult)
+    assert isinstance(result.fields.items, ListResult)
     assert len(result.fields.items) == 2
     assert result.fields.items[0].fields.name.value == 0.0
     assert result.fields.items[0].fields.price.value == 0.0
@@ -626,7 +626,7 @@ def test_similarity_list_basemodel_different_count() -> None:
 
     # got has 1 item, expected has 2 items
     # We compare item by item, so only first item is compared
-    assert isinstance(result.fields.items, FillRateListResult)
+    assert isinstance(result.fields.items, ListResult)
     assert len(result.fields.items) == 1
     assert result.fields.items[0].fields.name.value == 0.0
 
@@ -662,9 +662,7 @@ def test_similarity_list_basemodel_aggregated() -> None:
 
     # name: both items have same name -> [1.0, 0.0]
     # price: item 0 same, item 1 different -> [1.0, 0.0]
-    assert isinstance(
-        result.fields.items.aggregated_fields.name, FillRateAggregatedFieldResult
-    )
+    assert isinstance(result.fields.items.aggregated_fields.name, AggregatedFieldResult)
     assert result.fields.items.aggregated_fields.name.values == [1.0, 0.0]
     assert result.fields.items.aggregated_fields.price.values == [1.0, 0.0]
 
@@ -708,7 +706,7 @@ def test_similarity_mean_mixed() -> None:
 
 
 def test_similarity_invalid_value_raises() -> None:
-    """Test that invalid similarity value raises InvalidFillRateValueError."""
+    """Test that invalid similarity value raises InvalidSimilarityValueError."""
 
     class Person(BaseModel):
         name: str = Spec(similarity_func=lambda got, exp: 1.5)
@@ -716,7 +714,20 @@ def test_similarity_invalid_value_raises() -> None:
     person_got = Person(name="John")
     person_expected = Person(name="Jane")
 
-    with pytest.raises(InvalidFillRateValueError):
+    with pytest.raises(InvalidSimilarityValueError):
+        person_got.compute_similarity(person_expected)
+
+
+def test_similarity_invalid_value_non_float_raises() -> None:
+    """Test that non-float similarity value raises InvalidSimilarityValueError."""
+
+    class Person(BaseModel):
+        name: str = Spec(similarity_func=lambda got, exp: "not a float")
+
+    person_got = Person(name="John")
+    person_expected = Person(name="Jane")
+
+    with pytest.raises(InvalidSimilarityValueError):
         person_got.compute_similarity(person_expected)
 
 
@@ -731,7 +742,7 @@ def test_similarity_empty_model() -> None:
 
     result = instance_got.compute_similarity(instance_expected)
 
-    assert isinstance(result, FillRateModelResult)
+    assert isinstance(result, ModelResult)
     assert result.mean() == 0.0
 
 
@@ -947,7 +958,7 @@ def test_similarity_nested_expected_missing() -> None:
     result = person_got.compute_similarity(person_expected)
 
     # got has address, expected doesn't -> similarity = 0.0 for nested fields
-    assert isinstance(result.fields.address, FillRateModelResult)
+    assert isinstance(result.fields.address, ModelResult)
     assert result.fields.address.fields.street.value == 0.0
     assert result.fields.address.fields.city.value == 0.0
 
@@ -982,7 +993,7 @@ def test_similarity_list_basemodel_type_mismatch() -> None:
     result = order_got.compute_similarity(order_expected)
 
     # Type mismatch should create empty result
-    assert isinstance(result.fields.items, FillRateListResult)
+    assert isinstance(result.fields.items, ListResult)
     assert len(result.fields.items) == 1
     # All fields should be 0.0 due to type mismatch
     assert result.fields.items[0].fields.name.value == 0.0
@@ -1006,7 +1017,7 @@ def test_similarity_nested_with_internal_fields() -> None:
 
     # Both address missing -> similarity = 1.0 for all fields
     # Internal fields (_internal) should be skipped
-    assert isinstance(result.fields.address, FillRateModelResult)
+    assert isinstance(result.fields.address, ModelResult)
     assert result.fields.address.fields.street.value == 1.0
 
 
@@ -1036,7 +1047,7 @@ def test_similarity_nested_expected_not_basemodel() -> None:
     result = person_got.compute_similarity(person_expected)
 
     # Expected is not BaseModel -> similarity = 0.0 for all nested fields
-    assert isinstance(result.fields.address, FillRateModelResult)
+    assert isinstance(result.fields.address, ModelResult)
     assert result.fields.address.fields.street.value == 0.0
     assert result.fields.address.fields.city.value == 0.0
 
@@ -1061,7 +1072,7 @@ def test_similarity_nested_expected_missing_with_internal_fields() -> None:
 
     # got has address, expected doesn't -> similarity = 0.0 for nested fields
     # Internal fields (_internal) should be skipped
-    assert isinstance(result.fields.address, FillRateModelResult)
+    assert isinstance(result.fields.address, ModelResult)
     assert result.fields.address.fields.street.value == 0.0
 
 
@@ -1096,7 +1107,7 @@ def test_similarity_list_basemodel_type_mismatch_with_internal_fields() -> None:
     result = order_got.compute_similarity(order_expected)
 
     # Type mismatch should create empty result, private field should be skipped
-    assert isinstance(result.fields.items, FillRateListResult)
+    assert isinstance(result.fields.items, ListResult)
     assert len(result.fields.items) == 1
     # Only name field should be present (private field skipped)
     assert "name" in result.fields.items[0]._fields
@@ -1135,7 +1146,7 @@ def test_similarity_nested_field_expected_not_basemodel_instance() -> None:
     result = person_got.compute_similarity(person_expected)
 
     # got.address is BaseModel, expected.address is string -> similarity = 0.0
-    assert isinstance(result.fields.address, FillRateModelResult)
+    assert isinstance(result.fields.address, ModelResult)
     assert result.fields.address.fields.street.value == 0.0
     assert result.fields.address.fields.city.value == 0.0
 
@@ -1158,7 +1169,7 @@ def test_similarity_nested_one_missing_with_internal_fields() -> None:
 
     # Got missing, expected present -> similarity = 0.0 for nested fields
     # Internal fields (_internal) should be skipped
-    assert isinstance(result.fields.address, FillRateModelResult)
+    assert isinstance(result.fields.address, ModelResult)
     assert result.fields.address.fields.street.value == 0.0
 
 
@@ -1203,10 +1214,10 @@ def test_similarity_nested_both_present_expected_not_basemodel() -> None:
     # -> field is Field, not BaseModel, so doesn't enter first if
     # -> is_nested_model_type is True
     # -> field.value is not MissingValue and expected_value is not MissingValue
-    # -> enters else at line 1172
-    # -> expected_nested is not BaseModel -> enters else at line 1178
+    # -> enters else branch
+    # -> expected_nested is not BaseModel -> enters else branch
     # -> similarity = 0.0 for all nested fields
-    assert isinstance(result.fields.address, FillRateModelResult)
+    assert isinstance(result.fields.address, ModelResult)
     assert result.fields.address.fields.street.value == 0.0
     assert result.fields.address.fields.city.value == 0.0
 
@@ -1253,9 +1264,8 @@ def test_similarity_nested_field_both_present_both_basemodel() -> None:
     # -> field is Field, not BaseModel, so doesn't enter first if
     # -> is_nested_model_type is True
     # -> field.value is not MissingValue and expected_value is not MissingValue
-    # -> enters else at line 1172
-    # -> expected_nested is BaseModel -> enters if at line 1176
+    # -> expected_nested is BaseModel
     # -> recursively compute similarity
-    assert isinstance(result.fields.address, FillRateModelResult)
+    assert isinstance(result.fields.address, ModelResult)
     assert result.fields.address.fields.street.value == 0.0  # Different values
     assert result.fields.address.fields.city.value == 0.0  # Different values

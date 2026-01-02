@@ -284,7 +284,7 @@ print(result_b.mean())  # 0.5
 
 ```python
 from cobjectric import BaseModel, Spec
-from cobjectric.similarities import fuzzy_similarity_factory
+from cobjectric.similarity import fuzzy_similarity_factory
 
 class Person(BaseModel):
     name: str = Spec(similarity_func=fuzzy_similarity_factory())
@@ -306,7 +306,7 @@ print(result.mean())  # ~0.954...
 
 ```python
 from cobjectric import BaseModel, Spec
-from cobjectric.similarities import numeric_similarity_factory
+from cobjectric.similarity import numeric_similarity_factory
 
 class Measurement(BaseModel):
     temperature: float = Spec(
@@ -608,7 +608,7 @@ print(article.fields.tags.value)   # ["python", "web"]
 
 ```python
 from cobjectric import BaseModel, Spec, field_normalizer
-from cobjectric.similarities import fuzzy_similarity_factory
+from cobjectric.similarity import fuzzy_similarity_factory
 
 class Contact(BaseModel):
     first_name: str = Spec(
@@ -664,3 +664,7 @@ print(f"Data Similarity: {similarity_result.mean():.1%}")  # High (normalized va
 - [List Comparison Strategies](list_comparison.md) - Learn about list comparison strategies
 - [Path Access](path_access.md) - Learn about accessing fields by path notation
 - [Field Specifications](field_specs.md) - Learn about Spec() and field normalizers
+
+## API Reference
+
+See the [API Reference](reference.md) for the complete API documentation.

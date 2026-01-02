@@ -6,7 +6,7 @@ from datetime import datetime, timedelta
 
 from cobjectric.context import FieldContext
 from cobjectric.field_spec import Spec
-from cobjectric.similarities import (
+from cobjectric.similarity import (
     datetime_similarity_factory,
     exact_similarity,
     fuzzy_similarity_factory,

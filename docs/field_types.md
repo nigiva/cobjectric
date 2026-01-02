@@ -407,3 +407,7 @@ class Person(BaseModel):
 - [Nested Models](nested_models.md) - Learn about nested model structures
 - [Field Specifications](field_specs.md) - Learn about Spec() and field normalizers
 
+## API Reference
+
+See the [API Reference](reference.md#exceptions) for `UnsupportedTypeError` and type validation exceptions.
+
