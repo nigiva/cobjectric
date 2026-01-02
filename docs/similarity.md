@@ -85,14 +85,14 @@ print(result.fields.email.value) # 0.9
 
 ## Built-in Similarity Functions
 
-Cobjectric provides several built-in similarity functions in `cobjectric.similarities`:
+Cobjectric provides several built-in similarity functions in `cobjectric.similarity`:
 
 ### exact_similarity
 
 Exact equality comparison (default):
 
 ```python
-from cobjectric.similarities import exact_similarity
+from cobjectric.similarity import exact_similarity
 
 class Person(BaseModel):
     name: str = Spec(similarity_func=exact_similarity)
@@ -111,7 +111,7 @@ print(result.fields.age.value)   # 1.0
 Fuzzy string similarity using rapidfuzz:
 
 ```python
-from cobjectric.similarities import fuzzy_similarity_factory
+from cobjectric.similarity import fuzzy_similarity_factory
 
 class Person(BaseModel):
     name: str = Spec(similarity_func=fuzzy_similarity_factory())
@@ -137,7 +137,7 @@ fuzzy_token = fuzzy_similarity_factory(scorer="token_sort_ratio")
 Numeric similarity with tolerance:
 
 ```python
-from cobjectric.similarities import numeric_similarity_factory
+from cobjectric.similarity import numeric_similarity_factory
 
 class Person(BaseModel):
     age: int = Spec(similarity_func=numeric_similarity_factory())

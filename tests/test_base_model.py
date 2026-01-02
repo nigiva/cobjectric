@@ -2106,3 +2106,17 @@ def test_base_model_repr_complex() -> None:
         "tags=['python', 'rust'])"
     )
     assert repr(person) == expected
+
+
+def test_validate_metric_value_unknown_type_non_float() -> None:
+    """Test that _validate_metric_value raises ValueError for unknown metric_type with non-float value."""
+
+    with pytest.raises(ValueError, match="Unknown metric_type"):
+        BaseModel._validate_metric_value("field_name", "not a float", "unknown_type")
+
+
+def test_validate_metric_value_unknown_type_out_of_range() -> None:
+    """Test that _validate_metric_value raises ValueError for unknown metric_type with out-of-range value."""
+
+    with pytest.raises(ValueError, match="Unknown metric_type"):
+        BaseModel._validate_metric_value("field_name", 1.5, "unknown_type")

@@ -1,6 +1,6 @@
 class StatsMixin:
     """
-    Mixin providing statistical methods for fill rate results.
+    Mixin providing statistical methods for metric results.
 
     Subclasses must implement either:
     - `_get_values()` and `_get_values_and_weights()`, or

@@ -11,10 +11,10 @@ from cobjectric.stats import StatsMixin
 @dataclass
 class FieldResult:
     """
-    Result of fill rate computation for a single field.
+    Result of metric computation for a single field.
 
     Attributes:
-        value: The fill rate value (float between 0.0 and 1.0).
+        value: The metric value (float between 0.0 and 1.0).
         weight: Weight for this field in weighted mean calculation (default: 1.0).
     """
 
@@ -28,9 +28,9 @@ class FieldResult:
 
 class FieldResultCollection:
     """
-    Collection of fill rate results for a model instance.
+    Collection of metric results for a model instance.
 
-    Provides attribute-based access to fill rate results.
+    Provides attribute-based access to metric results.
     """
 
     def __init__(
@@ -51,7 +51,7 @@ class FieldResultCollection:
 
     def __getattr__(self, name: str) -> FieldResult | ModelResult | ListResult:
         """
-        Get a fill rate result by field name.
+        Get a metric result by field name.
 
         Args:
             name: The name of the field.
@@ -71,7 +71,7 @@ class FieldResultCollection:
     def __iter__(
         self,
     ) -> t.Iterator[FieldResult | ModelResult | ListResult]:
-        """Iterate over all fill rate results."""
+        """Iterate over all metric results."""
         return iter(self._fields.values())
 
     def __getitem__(self, path: str) -> FieldResult | ModelResult | ListResult:
@@ -175,7 +175,7 @@ class FieldResultCollection:
 @dataclass
 class ModelResult(StatsMixin):
     """
-    Result of fill rate computation for a model instance.
+    Result of metric computation for a model instance.
 
     Attributes:
         _fields: Dictionary mapping field names to FieldResult,
@@ -200,7 +200,7 @@ class ModelResult(StatsMixin):
         Get the FieldResultCollection for this result.
 
         Returns:
-            The FieldResultCollection containing all fill rate results.
+            The FieldResultCollection containing all metric results.
         """
         return FieldResultCollection(self._fields)
 
@@ -221,10 +221,10 @@ class ModelResult(StatsMixin):
 
     def _collect_all_values(self) -> list[float]:
         """
-        Collect all fill rate values recursively (including nested models).
+        Collect all metric values recursively (including nested models).
 
         Returns:
-            List of all fill rate values as floats.
+            List of all metric values as floats.
         """
         values: list[float] = []
         for field_result in self._fields.values():
@@ -241,7 +241,7 @@ class ModelResult(StatsMixin):
         self,
     ) -> tuple[list[float], list[float]]:
         """
-        Collect all fill rate values and weights recursively (including nested models).
+        Collect all metric values and weights recursively (including nested models).
 
         Returns:
             Tuple of (values, weights) lists.

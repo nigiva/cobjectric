@@ -117,6 +117,57 @@ class InvalidFillRateValueError(CobjectricError):
         )
 
 
+class InvalidFillRateAccuracyValueError(CobjectricError):
+    """
+    Exception raised when fill_rate_accuracy_func returns an invalid value.
+
+    This exception is raised when fill_rate_accuracy_func returns a value that is not
+    a float (or int convertible to float) or is not in the range [0, 1].
+    """
+
+    def __init__(self, field_name: str, value: t.Any) -> None:
+        """
+        Initialize InvalidFillRateAccuracyValueError.
+
+        Args:
+            field_name: The name of the field with invalid fill_rate_accuracy value.
+            value: The invalid value that was returned.
+        """
+        self.field_name = field_name
+        self.value = value
+        value_type = type(value).__name__
+        super().__init__(
+            f"Invalid fill_rate_accuracy value for field '{field_name}': {value!r} "
+            f"(type: {value_type}). Fill rate accuracy must be a float "
+            "between 0.0 and 1.0."
+        )
+
+
+class InvalidSimilarityValueError(CobjectricError):
+    """
+    Exception raised when similarity_func returns an invalid value.
+
+    This exception is raised when similarity_func returns a value that is not
+    a float (or int convertible to float) or is not in the range [0, 1].
+    """
+
+    def __init__(self, field_name: str, value: t.Any) -> None:
+        """
+        Initialize InvalidSimilarityValueError.
+
+        Args:
+            field_name: The name of the field with invalid similarity value.
+            value: The invalid value that was returned.
+        """
+        self.field_name = field_name
+        self.value = value
+        value_type = type(value).__name__
+        super().__init__(
+            f"Invalid similarity value for field '{field_name}': {value!r} "
+            f"(type: {value_type}). Similarity must be a float between 0.0 and 1.0."
+        )
+
+
 class InvalidWeightError(CobjectricError):
     """
     Exception raised when weight is invalid.

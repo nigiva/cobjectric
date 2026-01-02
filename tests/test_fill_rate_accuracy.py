@@ -6,7 +6,7 @@ from cobjectric import (
     AggregatedFieldResult,
     BaseModel,
     DuplicateFillRateAccuracyFuncError,
-    InvalidFillRateValueError,
+    InvalidFillRateAccuracyValueError,
     InvalidWeightError,
     ListResult,
     MissingValue,
@@ -332,7 +332,7 @@ def test_accuracy_mean_with_weights() -> None:
 
 
 def test_accuracy_invalid_value_raises() -> None:
-    """Test that invalid accuracy value raises InvalidFillRateValueError."""
+    """Test that invalid accuracy value raises InvalidFillRateAccuracyValueError."""
 
     class Person(BaseModel):
         name: str = Spec(fill_rate_accuracy_func=lambda got, exp: 1.5)
@@ -340,7 +340,20 @@ def test_accuracy_invalid_value_raises() -> None:
     person_got = Person(name="John")
     person_expected = Person(name="Jane")
 
-    with pytest.raises(InvalidFillRateValueError):
+    with pytest.raises(InvalidFillRateAccuracyValueError):
+        person_got.compute_fill_rate_accuracy(person_expected)
+
+
+def test_accuracy_invalid_value_non_float_raises() -> None:
+    """Test that non-float accuracy value raises InvalidFillRateAccuracyValueError."""
+
+    class Person(BaseModel):
+        name: str = Spec(fill_rate_accuracy_func=lambda got, exp: "not a float")
+
+    person_got = Person(name="John")
+    person_expected = Person(name="Jane")
+
+    with pytest.raises(InvalidFillRateAccuracyValueError):
         person_got.compute_fill_rate_accuracy(person_expected)
 
 

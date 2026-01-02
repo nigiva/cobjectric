@@ -6,7 +6,7 @@ from cobjectric import (
     AggregatedFieldResult,
     BaseModel,
     DuplicateSimilarityFuncError,
-    InvalidFillRateValueError,
+    InvalidSimilarityValueError,
     InvalidWeightError,
     ListResult,
     MissingValue,
@@ -14,7 +14,7 @@ from cobjectric import (
     Spec,
     similarity_func,
 )
-from cobjectric.similarities import (
+from cobjectric.similarity import (
     exact_similarity,
     fuzzy_similarity_factory,
     numeric_similarity_factory,
@@ -706,7 +706,7 @@ def test_similarity_mean_mixed() -> None:
 
 
 def test_similarity_invalid_value_raises() -> None:
-    """Test that invalid similarity value raises InvalidFillRateValueError."""
+    """Test that invalid similarity value raises InvalidSimilarityValueError."""
 
     class Person(BaseModel):
         name: str = Spec(similarity_func=lambda got, exp: 1.5)
@@ -714,7 +714,20 @@ def test_similarity_invalid_value_raises() -> None:
     person_got = Person(name="John")
     person_expected = Person(name="Jane")
 
-    with pytest.raises(InvalidFillRateValueError):
+    with pytest.raises(InvalidSimilarityValueError):
+        person_got.compute_similarity(person_expected)
+
+
+def test_similarity_invalid_value_non_float_raises() -> None:
+    """Test that non-float similarity value raises InvalidSimilarityValueError."""
+
+    class Person(BaseModel):
+        name: str = Spec(similarity_func=lambda got, exp: "not a float")
+
+    person_got = Person(name="John")
+    person_expected = Person(name="Jane")
+
+    with pytest.raises(InvalidSimilarityValueError):
         person_got.compute_similarity(person_expected)
 
 

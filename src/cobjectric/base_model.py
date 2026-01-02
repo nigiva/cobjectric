@@ -9,8 +9,10 @@ from cobjectric.exceptions import (
     DuplicateFillRateAccuracyFuncError,
     DuplicateFillRateFuncError,
     DuplicateSimilarityFuncError,
+    InvalidFillRateAccuracyValueError,
     InvalidFillRateValueError,
     InvalidListCompareStrategyError,
+    InvalidSimilarityValueError,
     MissingListTypeArgError,
     UnsupportedListTypeError,
     UnsupportedTypeError,
@@ -19,13 +21,13 @@ from cobjectric.field import Field
 from cobjectric.field_collection import FieldCollection
 from cobjectric.field_spec import FieldSpec, is_contextual_normalizer
 from cobjectric.fill_rate import (
-    FillRateAccuracyFunc,
-    FillRateAccuracyFuncInfo,
     FillRateFunc,
     FillRateFuncInfo,
-    SimilarityFunc,
-    SimilarityFuncInfo,
     not_missing_fill_rate,
+)
+from cobjectric.fill_rate_accuracy import (
+    FillRateAccuracyFunc,
+    FillRateAccuracyFuncInfo,
     same_state_fill_rate_accuracy,
 )
 from cobjectric.list_compare import (
@@ -40,7 +42,11 @@ from cobjectric.results import (
     ModelResult,
 )
 from cobjectric.sentinel import MissingValue
-from cobjectric.similarities import exact_similarity
+from cobjectric.similarity import (
+    SimilarityFunc,
+    SimilarityFuncInfo,
+    exact_similarity,
+)
 
 
 class BaseModel:
@@ -524,6 +530,54 @@ class BaseModel:
         return cls._collect_decorated_funcs("_similarity_funcs")
 
     @staticmethod
+    def _validate_metric_value(
+        field_name: str, value: t.Any, metric_type: str
+    ) -> float:
+        """
+        Validate that a metric function returns a valid float in [0, 1].
+
+        Args:
+            field_name: The name of the field.
+            value: The value returned by the metric function.
+            metric_type: The type of metric
+                ("fill_rate", "fill_rate_accuracy", "similarity").
+
+        Returns:
+            float: The validated metric value.
+
+        Raises:
+            InvalidFillRateValueError: If value is invalid for fill_rate.
+            InvalidFillRateAccuracyValueError: If value is invalid for
+                fill_rate_accuracy.
+            InvalidSimilarityValueError: If value is invalid for similarity.
+        """
+        # Accept int (0, 1) and convert to float
+        if isinstance(value, int):
+            value = float(value)
+
+        if not isinstance(value, float):
+            if metric_type == "fill_rate":
+                raise InvalidFillRateValueError(field_name, value)
+            elif metric_type == "fill_rate_accuracy":
+                raise InvalidFillRateAccuracyValueError(field_name, value)
+            elif metric_type == "similarity":
+                raise InvalidSimilarityValueError(field_name, value)
+            else:
+                raise ValueError(f"Unknown metric_type: {metric_type}")
+
+        if not 0.0 <= value <= 1.0:
+            if metric_type == "fill_rate":
+                raise InvalidFillRateValueError(field_name, value)
+            elif metric_type == "fill_rate_accuracy":
+                raise InvalidFillRateAccuracyValueError(field_name, value)
+            elif metric_type == "similarity":
+                raise InvalidSimilarityValueError(field_name, value)
+            else:
+                raise ValueError(f"Unknown metric_type: {metric_type}")
+
+        return value
+
+    @staticmethod
     def _validate_fill_rate_value(field_name: str, value: t.Any) -> float:
         """
         Validate that fill_rate_func returns a valid float in [0, 1].
@@ -538,17 +592,7 @@ class BaseModel:
         Raises:
             InvalidFillRateValueError: If value is not a float or not in [0, 1].
         """
-        # Accept int (0, 1) and convert to float
-        if isinstance(value, int):
-            value = float(value)
-
-        if not isinstance(value, float):
-            raise InvalidFillRateValueError(field_name, value)
-
-        if not 0.0 <= value <= 1.0:
-            raise InvalidFillRateValueError(field_name, value)
-
-        return value
+        return BaseModel._validate_metric_value(field_name, value, "fill_rate")
 
     @classmethod
     def _create_empty_model_result(
@@ -709,7 +753,7 @@ class BaseModel:
         Raises:
             DuplicateFillRateAccuracyFuncError: If multiple
                 fill_rate_accuracy_func are defined for the same field.
-            InvalidFillRateValueError: If a fill_rate_accuracy_func returns
+            InvalidFillRateAccuracyValueError: If a fill_rate_accuracy_func returns
                 an invalid value.
             InvalidListCompareStrategyError: If list_compare_strategy is used on
                 a non-list field.
@@ -846,8 +890,8 @@ class BaseModel:
                     accuracy_value = fill_rate_accuracy_func_to_use(
                         field.value, expected_value
                     )
-                    validated_value = self._validate_fill_rate_value(
-                        field_name, accuracy_value
+                    validated_value = self._validate_metric_value(
+                        field_name, accuracy_value, "fill_rate_accuracy"
                     )
                     result_fields[field_name] = FieldResult(
                         value=validated_value, weight=weight_to_use
@@ -885,8 +929,8 @@ class BaseModel:
                 accuracy_value = fill_rate_accuracy_func_to_use(
                     got_value, expected_value
                 )
-                validated_value = self._validate_fill_rate_value(
-                    field_name, accuracy_value
+                validated_value = self._validate_metric_value(
+                    field_name, accuracy_value, "fill_rate_accuracy"
                 )
                 result_fields[field_name] = FieldResult(
                     value=validated_value, weight=weight_to_use
@@ -935,7 +979,7 @@ class BaseModel:
         Raises:
             DuplicateSimilarityFuncError: If multiple similarity_func are defined
                 for the same field.
-            InvalidFillRateValueError: If a similarity_func returns an invalid value.
+            InvalidSimilarityValueError: If a similarity_func returns an invalid value.
             InvalidListCompareStrategyError: If list_compare_strategy is used on
                 a non-list field.
         """
@@ -1069,8 +1113,8 @@ class BaseModel:
                     similarity_value = similarity_func_to_use(
                         field.value, expected_value
                     )
-                    validated_value = self._validate_fill_rate_value(
-                        field_name, similarity_value
+                    validated_value = self._validate_metric_value(
+                        field_name, similarity_value, "similarity"
                     )
                     result_fields[field_name] = FieldResult(
                         value=validated_value, weight=weight_to_use
@@ -1104,8 +1148,8 @@ class BaseModel:
                 # Compute similarity for this field
                 got_value = field.value
                 similarity_value = similarity_func_to_use(got_value, expected_value)
-                validated_value = self._validate_fill_rate_value(
-                    field_name, similarity_value
+                validated_value = self._validate_metric_value(
+                    field_name, similarity_value, "similarity"
                 )
                 result_fields[field_name] = FieldResult(
                     value=validated_value, weight=weight_to_use

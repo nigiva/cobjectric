@@ -78,7 +78,7 @@ Compare field values between two models with support for **fuzzy text matching**
 
 ```python
 from cobjectric import BaseModel, Spec, ListCompareStrategy
-from cobjectric.similarities import fuzzy_similarity_factory
+from cobjectric.similarity import fuzzy_similarity_factory
 
 class Person(BaseModel):
     name: str = Spec(similarity_func=fuzzy_similarity_factory("WRatio"))
