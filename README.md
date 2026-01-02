@@ -5,7 +5,7 @@
 [![CI](https://github.com/nigiva/cobjectric/actions/workflows/ci.yml/badge.svg)](https://github.com/nigiva/cobjectric/actions/workflows/ci.yml)
 [![codecov](https://codecov.io/github/nigiva/cobjectric/graph/badge.svg?token=8W3KJU8JG1)](https://codecov.io/github/nigiva/cobjectric)
 [![PyPI version](https://img.shields.io/pypi/v/cobjectric.svg)](https://pypi.org/project/cobjectric/)
-[![PyPI - Monthly Downloads](https://img.shields.io/pypi/dm/cobjectric)](https://pypi.org/project/cobjectric/)
+[![PyPI downloads](https://img.shields.io/pypi/dm/cobjectric.svg)](https://pypi.org/project/cobjectric/)
 [![Python Version](https://img.shields.io/pypi/pyversions/cobjectric.svg)](https://pypi.org/project/cobjectric/)
 [![Documentation](https://img.shields.io/badge/docs-cobjectric.nigiva.com-blue)](https://cobjectric.nigiva.com)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
