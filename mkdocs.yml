@@ -81,6 +81,7 @@ nav:
     - Field Specifications: field_specs.md
     - Pre-defined Specs: specs.md
     - List Comparison Strategies: list_comparison.md
+    - Pandas Export: pandas_export.md
   - Examples: examples.md
   - API Reference:
     - Reference: reference.md

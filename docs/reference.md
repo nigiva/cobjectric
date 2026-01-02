@@ -43,36 +43,38 @@ See [Fill Rate Guide](fill_rate.md) for usage and examples.
 
 ### Fill Rate Results
 
-:::cobjectric.FillRateFieldResult
+:::cobjectric.FieldResult
     options:
       show_source: true
       docstring_style: google
 
-:::cobjectric.FillRateFieldCollection
+:::cobjectric.FieldResultCollection
     options:
       show_source: true
       docstring_style: google
 
-:::cobjectric.FillRateModelResult
+:::cobjectric.ModelResult
     options:
       show_source: true
       docstring_style: google
+
+See [Pandas Export Guide](pandas_export.md) for exporting ModelResult to pandas Series.
 
 ### Fill Rate Accuracy Results
 
 See [Fill Rate Accuracy Guide](fill_rate_accuracy.md) for usage and examples.
 
-:::cobjectric.FillRateAccuracyFieldResult
+:::cobjectric.FieldResult
     options:
       show_source: true
       docstring_style: google
 
-:::cobjectric.FillRateAccuracyFieldCollection
+:::cobjectric.FieldResultCollection
     options:
       show_source: true
       docstring_style: google
 
-:::cobjectric.FillRateAccuracyModelResult
+:::cobjectric.ModelResult
     options:
       show_source: true
       docstring_style: google
@@ -81,17 +83,17 @@ See [Fill Rate Accuracy Guide](fill_rate_accuracy.md) for usage and examples.
 
 See [Similarity Guide](similarity.md) for fuzzy matching and advanced strategies.
 
-:::cobjectric.SimilarityFieldResult
+:::cobjectric.FieldResult
     options:
       show_source: true
       docstring_style: google
 
-:::cobjectric.SimilarityFieldCollection
+:::cobjectric.FieldResultCollection
     options:
       show_source: true
       docstring_style: google
 
-:::cobjectric.SimilarityModelResult
+:::cobjectric.ModelResult
     options:
       show_source: true
       docstring_style: google
@@ -100,27 +102,36 @@ See [Similarity Guide](similarity.md) for fuzzy matching and advanced strategies
 
 See [List Comparison Strategies Guide](list_comparison.md) for list handling and aggregation.
 
-:::cobjectric.FillRateListResult
+:::cobjectric.ListResult
     options:
       show_source: true
       docstring_style: google
 
-:::cobjectric.FillRateAggregatedFieldResult
+:::cobjectric.AggregatedFieldResult
     options:
       show_source: true
       docstring_style: google
 
-:::cobjectric.FillRateAggregatedFieldCollection
+:::cobjectric.AggregatedFieldResultCollection
     options:
       show_source: true
       docstring_style: google
 
-:::cobjectric.FillRateAggregatedModelResult
+:::cobjectric.AggregatedModelResult
     options:
       show_source: true
       docstring_style: google
 
-:::cobjectric.FillRateNestedListAggregatedResult
+:::cobjectric.NestedListAggregatedResult
+    options:
+      show_source: true
+      docstring_style: google
+
+## Result Collections
+
+See [Pandas Export Guide](pandas_export.md) for exporting results to pandas Series and DataFrames.
+
+:::cobjectric.ModelResultCollection
     options:
       show_source: true
       docstring_style: google

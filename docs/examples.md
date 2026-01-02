@@ -653,6 +653,103 @@ similarity_result = raw_data.compute_similarity(expected)
 print(f"Data Similarity: {similarity_result.mean():.1%}")  # High (normalized values match)
 ```
 
+## Pandas Export Examples
+
+**Note**: Pandas export requires installing the pandas extra: `pip install cobjectric[pandas]`
+
+### Example 22: Exporting Single Result to Series
+
+```python
+from cobjectric import BaseModel
+
+class Person(BaseModel):
+    name: str
+    age: int
+    email: str
+
+person = Person(name="John", age=30, email="john@example.com")
+result = person.compute_fill_rate()
+
+# Export to pandas Series
+series = result.to_series()
+print(series)
+# name     1.0
+# age      1.0
+# email    1.0
+# dtype: float64
+```
+
+### Example 23: Exporting Multiple Results to DataFrame
+
+```python
+from cobjectric import BaseModel
+
+class Person(BaseModel):
+    name: str
+    age: int
+    email: str
+
+# Create multiple persons with different completeness
+person1 = Person(name="John", age=30, email="john@example.com")
+person2 = Person(name="Jane", age=25)  # email missing
+person3 = Person(name="Bob", age=40, email="bob@example.com")
+
+# Compute fill rates
+result1 = person1.compute_fill_rate()
+result2 = person2.compute_fill_rate()
+result3 = person3.compute_fill_rate()
+
+# Combine results
+collection = result1 + result2 + result3
+
+# Export to pandas DataFrame
+df = collection.to_dataframe()
+print(df)
+#    name  age  email
+# 0   1.0  1.0    1.0
+# 1   1.0  1.0    0.0
+# 2   1.0  1.0    1.0
+
+# Calculate statistics across all results
+print(collection.mean())  # {'name': 1.0, 'age': 1.0, 'email': 0.666...}
+print(collection.std())   # {'name': 0.0, 'age': 0.0, 'email': 0.471...}
+print(collection.min())   # {'name': 1.0, 'age': 1.0, 'email': 0.0}
+print(collection.max())   # {'name': 1.0, 'age': 1.0, 'email': 1.0}
+```
+
+### Example 24: Working with Nested Models
+
+```python
+class Address(BaseModel):
+    street: str
+    city: str
+
+class Person(BaseModel):
+    name: str
+    address: Address
+
+person1 = Person(
+    name="John",
+    address=Address(street="123 Main St", city="NYC")
+)
+person2 = Person(
+    name="Jane",
+    address=Address(street="456 Oak Ave", city="LA")
+)
+
+result1 = person1.compute_fill_rate()
+result2 = person2.compute_fill_rate()
+
+collection = result1 + result2
+df = collection.to_dataframe()
+print(df)
+#    name  address.street  address.city
+# 0   1.0             1.0           1.0
+# 1   1.0             1.0           1.0
+```
+
+See the [Pandas Export Guide](pandas_export.md) for complete documentation.
+
 ## Related Topics
 
 - [Quick Start](quickstart.md) - Get started in 5 minutes
@@ -664,6 +761,7 @@ print(f"Data Similarity: {similarity_result.mean():.1%}")  # High (normalized va
 - [List Comparison Strategies](list_comparison.md) - Learn about list comparison strategies
 - [Path Access](path_access.md) - Learn about accessing fields by path notation
 - [Field Specifications](field_specs.md) - Learn about Spec() and field normalizers
+- [Pandas Export](pandas_export.md) - Export results to pandas Series and DataFrames
 
 ## API Reference
 

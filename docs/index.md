@@ -23,6 +23,7 @@ Welcome to the Cobjectric documentation. This guide will help you get started wi
 9. [Field Specifications](field_specs.md) - Learn about Spec(), metadata, and field normalizers
 10. [Pre-defined Specs](specs.md) - Learn about KeywordSpec, TextSpec, NumericSpec, and other pre-defined Specs
 11. [List Comparison Strategies](list_comparison.md) - Learn about strategies for comparing list[BaseModel] fields
+12. [Pandas Export](pandas_export.md) - Export results to pandas Series and DataFrames (requires `cobjectric[pandas]`)
 
 ### Examples & API
 
@@ -43,6 +44,7 @@ Cobjectric is a Python library for defining and managing complex object models w
 - **Fill Rate**: Measure data completeness and quality
 - **Similarity**: Compare models and compute similarity scores
 - **Path Access**: Access nested fields using path notation
+- **Pandas Export**: Export results to pandas Series and DataFrames for analysis
 
 ## Getting Started
 

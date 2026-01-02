@@ -110,6 +110,7 @@ print(similarity.fields.tags.mean()) # Uses optimal assignment for best matching
 - **Nested Models**: Recursive computation on complex structures
 - **List Aggregation**: Access aggregated statistics across list items via `items.aggregated_fields.name.mean()`
 - **Path Access**: `result["address.city"]` or `result["items[0].name"]`
+- **Pandas Export**: Export results to pandas Series and DataFrames for analysis (requires `cobjectric[pandas]`)
 - **Custom Functions**: Define your own fill rate, accuracy, or similarity functions per field
 - **Field Normalizers**: Transform values before validation
 

@@ -111,12 +111,47 @@ person = Person(name="Jane", age="invalid")  # age is not an int
 print(person.fields.age.value is MissingValue)  # True
 ```
 
+## Export to Pandas
+
+You can export results to pandas Series and DataFrames for statistical analysis and visualization. **Note**: This requires installing the pandas extra:
+
+```bash
+pip install cobjectric[pandas]
+```
+
+```python
+person1 = Person(name="John", age=30, email="john@example.com")
+person2 = Person(name="Jane", age=25)  # email missing
+person3 = Person(name="Bob", age=40, email="bob@example.com")
+
+# Combine results
+result1 = person1.compute_fill_rate()
+result2 = person2.compute_fill_rate()
+result3 = person3.compute_fill_rate()
+
+collection = result1 + result2 + result3
+
+# Export to pandas DataFrame
+df = collection.to_dataframe()
+print(df)
+#    name  age  email
+# 0   1.0  1.0    1.0
+# 1   1.0  1.0    0.0
+# 2   1.0  1.0    1.0
+
+# Calculate statistics
+print(collection.mean())  # {'name': 1.0, 'age': 1.0, 'email': 0.666...}
+```
+
+See the [Pandas Export Guide](pandas_export.md) for more details.
+
 ## Next Steps
 
 - Learn more about [Similarity](similarity.md) for fuzzy matching and value comparison
 - Explore [Field Specifications](field_specs.md) to customize metric functions
 - Check out [Pre-defined Specs](specs.md) for optimized configurations
 - See [Examples](examples.md) for real-world scenarios
+- Export results to pandas with [Pandas Export](pandas_export.md) for analysis and visualization
 
 ## API Reference
 

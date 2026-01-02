@@ -230,6 +230,7 @@ except ImportError as e:
 
 ## Related Topics
 
+- [API Reference](reference.md) - Complete API documentation including `ModelResult` and `ModelResultCollection`
 - [BaseModel](base_model.md) - Learn about the base model class
 - [Fill Rate](fill_rate.md) - Learn about fill rate computation
 - [Fill Rate Accuracy](fill_rate_accuracy.md) - Learn about fill rate accuracy

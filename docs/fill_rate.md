@@ -158,11 +158,11 @@ print(result.fields.age.value)   # 1.0
 print(result.fields.email.value) # 0.0 (missing)
 ```
 
-## FillRateModelResult
+## ModelResult
 
-The `compute_fill_rate()` method returns a `FillRateModelResult` object that provides:
+The `compute_fill_rate()` method returns a `ModelResult` object that provides:
 
-- **Field access**: `result.fields.name` returns a `FillRateFieldResult` with the fill rate value and weight
+- **Field access**: `result.fields.name` returns a `FieldResult` with the fill rate value and weight
 - **Statistical methods**: `mean()` (weighted), `max()`, `min()`, `std()`, `var()`, `quantile(q)`
 
 ```python
@@ -352,7 +352,7 @@ result = person.compute_fill_rate()
 # Access fill rate for top-level field
 print(result.fields.name.value)  # 1.0
 
-# Access fill rate for nested model (returns FillRateModelResult)
+# Access fill rate for nested model (returns ModelResult)
 nested_result = result.fields.address
 print(nested_result.fields.street.value)  # 1.0
 print(nested_result.fields.city.value)   # 1.0
@@ -412,7 +412,7 @@ print(result.fields.tags.value)  # 1.0 (tags is non-empty)
 
 ### List of BaseModel
 
-For `list[BaseModel]`, you get a `FillRateListResult` with two access modes:
+For `list[BaseModel]`, you get a `ListResult` with two access modes:
 
 **Access by Index** (individual item):
 
@@ -436,15 +436,15 @@ order = Order.from_dict({
 result = order.compute_fill_rate()
 
 # Access list result
-items_result = result.fields.items  # FillRateListResult
+items_result = result.fields.items  # ListResult
 print(len(items_result))  # 2
 
 # Access individual item by index
-item0_result = items_result[0]  # FillRateModelResult for first item
+item0_result = items_result[0]  # ModelResult for first item
 print(item0_result.fields.name.value)   # 1.0
 print(item0_result.fields.price.value)  # 1.0
 
-item1_result = items_result[1]  # FillRateModelResult for second item
+item1_result = items_result[1]  # ModelResult for second item
 print(item1_result.fields.name.value)   # 1.0
 print(item1_result.fields.price.value)  # 0.0 (price is missing)
 
@@ -457,7 +457,7 @@ for item_result in items_result:
 
 ```python
 # Recommended: Use aggregated_fields for clarity
-name_aggregated = result.fields.items.aggregated_fields.name  # FillRateAggregatedFieldResult
+name_aggregated = result.fields.items.aggregated_fields.name  # AggregatedFieldResult
 print(name_aggregated.values)  # [1.0, 1.0] - fill rate for name in each item
 print(name_aggregated.mean())  # 1.0 - mean fill rate for name across items
 print(name_aggregated.max())   # 1.0
@@ -495,8 +495,8 @@ order = Order.from_dict({
 result = order.compute_fill_rate()
 
 # Access nested model through aggregated
-address_aggregated = result.fields.items.aggregated_fields.address  # FillRateAggregatedModelResult
-city_aggregated = address_aggregated.city  # FillRateAggregatedFieldResult (FillRateAggregatedModelResult uses __getattr__ directly)
+address_aggregated = result.fields.items.aggregated_fields.address  # AggregatedModelResult
+city_aggregated = address_aggregated.city  # AggregatedFieldResult (AggregatedModelResult uses __getattr__ directly)
 print(city_aggregated.values)  # [1.0, 1.0]
 print(address_aggregated.street.values)  # [1.0, 0.0]
 ```
@@ -527,12 +527,12 @@ result = catalog.compute_fill_rate()
 # Accessing items.aggregated_fields.tags returns the mean fill rate
 # of each tags list, not individual tag fields
 tags_agg = result.fields.items.aggregated_fields.tags
-# Returns FillRateAggregatedFieldResult with values = [1.0, 1.0]
+# Returns AggregatedFieldResult with values = [1.0, 1.0]
 # (one value per item, representing the mean fill rate of each tags list)
 
 # To access individual tag fields, use indexed access:
-item0_tags = result.fields.items[0].fields.tags  # FillRateListResult
-tag0 = item0_tags[0]  # FillRateModelResult for first tag
+item0_tags = result.fields.items[0].fields.tags  # ListResult
+tag0 = item0_tags[0]  # ModelResult for first tag
 ```
 
 For `list[list[str]]` or `list[list[int]]`, the field is treated as a `list[Primitive]`:
@@ -545,7 +545,7 @@ person = Person(skills=[["Python", "Rust"], ["JavaScript"]])
 
 result = person.compute_fill_rate()
 
-# skills is treated as list[Primitive], returns FillRateFieldResult
+# skills is treated as list[Primitive], returns FieldResult
 # 0.0 if empty, 1.0 if non-empty
 print(result.fields.skills.value)  # 1.0 (non-empty list)
 ```

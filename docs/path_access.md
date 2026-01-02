@@ -95,10 +95,10 @@ print(price_field.value)  # 0.5
 
 # Fill rate results also support list index access
 result = order.compute_fill_rate()
-item0_result = result["items[0]"]  # FillRateModelResult
+item0_result = result["items[0]"]  # ModelResult
 print(item0_result.fields.name.value)  # 1.0
 
-name_result = result["items[0].name"]  # FillRateFieldResult
+name_result = result["items[0].name"]  # FieldResult
 print(name_result.value)  # 1.0
 
 # Multiple nested indices work too
