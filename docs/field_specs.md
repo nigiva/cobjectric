@@ -247,3 +247,7 @@ print(person.fields.metadata.value)  # {"key1": "value1", "key2": "value2"}
 - [Fill Rate](fill_rate.md) - Learn about fill rate functions that can be defined in Spec()
 - [Similarity](similarity.md) - Learn about similarity functions that can be defined in Spec()
 
+## API Reference
+
+See the [API Reference](reference.md#core-model-classes) for `Spec()` and `FieldSpec` documentation.
+

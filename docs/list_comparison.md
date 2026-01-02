@@ -212,3 +212,7 @@ except InvalidListCompareStrategyError as e:
 - [Similarity](similarity.md) - Learn about similarity computation
 - [Fill Rate](fill_rate.md) - Learn about fill rate and fill rate accuracy computation
 
+## API Reference
+
+See the [API Reference](reference.md#list-comparison-strategies) for `ListCompareStrategy` documentation and [List Results](reference.md#list-results) for aggregation methods.
+

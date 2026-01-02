@@ -335,3 +335,7 @@ except DuplicateSimilarityFuncError as e:
 - [Fill Rate](fill_rate.md) - Learn about fill rate computation
 - [List Comparison Strategies](list_comparison.md) - Detailed guide on list comparison strategies
 
+## API Reference
+
+See the [API Reference](reference.md#similarity-functions) for similarity function implementations and the [Result Classes](reference.md#similarity-results) for similarity result types.
+

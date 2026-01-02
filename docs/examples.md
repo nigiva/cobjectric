@@ -664,3 +664,7 @@ print(f"Data Similarity: {similarity_result.mean():.1%}")  # High (normalized va
 - [List Comparison Strategies](list_comparison.md) - Learn about list comparison strategies
 - [Path Access](path_access.md) - Learn about accessing fields by path notation
 - [Field Specifications](field_specs.md) - Learn about Spec() and field normalizers
+
+## API Reference
+
+See the [API Reference](reference.md) for the complete API documentation.

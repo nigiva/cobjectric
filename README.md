@@ -5,6 +5,7 @@
 [![CI](https://github.com/nigiva/cobjectric/actions/workflows/ci.yml/badge.svg)](https://github.com/nigiva/cobjectric/actions/workflows/ci.yml)
 [![codecov](https://codecov.io/github/nigiva/cobjectric/graph/badge.svg?token=8W3KJU8JG1)](https://codecov.io/github/nigiva/cobjectric)
 [![PyPI version](https://img.shields.io/pypi/v/cobjectric.svg)](https://pypi.org/project/cobjectric/)
+[![PyPI - Monthly Downloads](https://img.shields.io/pypi/dm/cobjectric)](https://pypi.org/project/cobjectric/)
 [![Python Version](https://img.shields.io/pypi/pyversions/cobjectric.svg)](https://pypi.org/project/cobjectric/)
 [![Documentation](https://img.shields.io/badge/docs-cobjectric.nigiva.com-blue)](https://cobjectric.nigiva.com)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
@@ -14,16 +15,6 @@
 ## 📖 Description
 
 Cobjectric is a library designed to help developers calculate metrics on complex objects such as JSON, dictionaries, and arrays. It was originally created for Machine Learning projects where comparing and evaluating generated JSON structures against ground truth data was a repetitive manual task.
-
-## 📚 Documentation
-
-**📖 Full documentation available at: [https://cobjectric.nigiva.com](https://cobjectric.nigiva.com)**
-
-The documentation includes:
-- Quick start guide
-- Complete API reference
-- Detailed examples
-- Advanced features and best practices
 
 ## 📦 Installation
 
@@ -40,40 +31,44 @@ Cobjectric provides **three main functionalities** for analyzing complex structu
 Compute how "complete" your data is by measuring which fields are filled vs missing.
 
 ```python
-from cobjectric import BaseModel, Spec
+from cobjectric import BaseModel
 
 class Person(BaseModel):
-    name: str = Spec(fill_rate_func=lambda x: len(x) / 100)
+    name: str
     age: int
     email: str
 
 person = Person.from_dict({
     "name": "John Doe",
     "age": 30,
-    "email": "john.doe@example.com",
+    # email is missing
 })
 
 result = person.compute_fill_rate()
-print(result.fields.name.value)   # 0.08 (custom: len/100)
+print(result.fields.name.value)   # 1.0 (present)
 print(result.fields.age.value)    # 1.0 (present)
-print(result.fields.email.value)  # 1.0 (present)
-print(result.mean())              # 0.693... (weighted average)
+print(result.fields.email.value)  # 0.0 (missing)
+print(result.mean())              # 0.667 (2 out of 3 fields filled)
 ```
 
 **Use cases**: Data quality assessment, completeness scoring, field-level statistics.
 
-### 2. Fill Rate Accuracy - Compare Completeness
+### 2. Fill Rate Accuracy - Compare Completeness States
 
-Compare the completeness of two models (got vs expected) to measure accuracy of data filling.
+Compare the completeness of two models (got vs expected). **Focus on field state** (filled/missing), not on actual values.
 
 ```python
-got = Person.from_dict({"name": "John", "age": 30})  # email missing
-expected = Person.from_dict({"name": "John", "age": 30, "email": "john@example.com"})
+got = Person.from_dict({"name": "John", "age": 30})           # email missing
+expected = Person.from_dict({"name": "Jane", "age": 25, "email": "jane@example.com"})
 
 accuracy = got.compute_fill_rate_accuracy(expected)
-print(accuracy.fields.email.value)  # 0.0 (got missing, expected present)
-print(accuracy.mean())               # 0.667 (2/3 fields match state)
+print(accuracy.fields.name.value)   # 1.0 (both filled)
+print(accuracy.fields.age.value)    # 1.0 (both filled)
+print(accuracy.fields.email.value)  # 0.0 (got missing, expected filled)
+print(accuracy.mean())              # 0.667 (2 out of 3 states match)
 ```
+
+**Note**: Fill Rate Accuracy compares **state only** (field present/missing), not values. To validate actual values, use Similarity.
 
 **Use cases**: Validation pipelines, comparing generated vs expected data structures, quality control.
 
@@ -118,15 +113,18 @@ print(similarity.fields.tags.mean()) # Uses optimal assignment for best matching
 - **Custom Functions**: Define your own fill rate, accuracy, or similarity functions per field
 - **Field Normalizers**: Transform values before validation
 
-See the [documentation](docs/index.md) for complete details.
+See the [documentation](https://cobjectric.nigiva.com) for complete details.
 
-### Documentation
+## 📚 Full Documentation
 
-For more information, check out the [full documentation](docs/index.md):
+**📖 [https://cobjectric.nigiva.com](https://cobjectric.nigiva.com)**
 
-- [Quick Start](docs/quickstart.md) - Get started in 5 minutes
-- [Examples](docs/examples.md) - Real-world usage examples
-- [Documentation Index](docs/index.md) - Complete guide to all features
+The documentation includes:
+
+- [Quick Start](https://cobjectric.nigiva.com/quickstart/) - Get started in 5 minutes
+- [Examples](https://cobjectric.nigiva.com/examples/) - Real-world usage examples
+- [Complete API Reference](https://cobjectric.nigiva.com/api-reference/) - All classes and functions
+- [Feature Guides](https://cobjectric.nigiva.com/) - In-depth guides for all features
 
 
 ## 🛠️ Development

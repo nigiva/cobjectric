@@ -69,16 +69,19 @@ nav:
   - Home: index.md
   - Getting Started:
     - Quick Start: quickstart.md
-  - Core Concepts:
+  - Model Fundamentals:
     - BaseModel: base_model.md
     - Field Types: field_types.md
     - Nested Models: nested_models.md
-  - Advanced Features:
+    - Path Access: path_access.md
+  - Features:
+    - Fill Rate: fill_rate.md
+    - Fill Rate Accuracy: fill_rate_accuracy.md
+    - Similarity: similarity.md
     - Field Specifications: field_specs.md
     - Pre-defined Specs: specs.md
-    - Fill Rate: fill_rate.md
-    - Similarity: similarity.md
     - List Comparison Strategies: list_comparison.md
-    - Path Access: path_access.md
   - Examples: examples.md
+  - API Reference:
+    - Reference: reference.md
 

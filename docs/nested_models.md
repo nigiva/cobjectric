@@ -132,3 +132,7 @@ print(person.fields.address.value is MissingValue)  # True
 - [Field Types](field_types.md) - Learn about different field types
 - [Path Access](path_access.md) - Learn about accessing nested fields by path notation
 
+## API Reference
+
+See the [API Reference](reference.md#core-model-classes) for `BaseModel` and nested structure support.
+

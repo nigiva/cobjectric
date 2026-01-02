@@ -6,26 +6,28 @@ Welcome to the Cobjectric documentation. This guide will help you get started wi
 
 ### Getting Started
 
-1. [Quick Start](quickstart.md) - Get up and running in 5 minutes
+1. [Quick Start](quickstart.md) - Get up and running in 5 minutes, computing metrics on your data
 
-### Core Concepts
+### Model Fundamentals
 
 2. [BaseModel](base_model.md) - Learn about the base model class, fields, and basic usage
 3. [Field Types](field_types.md) - Learn about different field types (Optional, Union, Dict, List)
 4. [Nested Models](nested_models.md) - Learn about nested model structures
+5. [Path Access](path_access.md) - Learn about accessing fields by path notation
 
-### Advanced Features
+### Features
 
-5. [Field Specifications](field_specs.md) - Learn about Spec(), metadata, and field normalizers
-6. [Pre-defined Specs](specs.md) - Learn about KeywordSpec, TextSpec, NumericSpec, and other pre-defined Specs
-7. [Fill Rate](fill_rate.md) - Learn about fill rate and fill rate accuracy computation
-8. [Similarity](similarity.md) - Learn about similarity computation
-9. [List Comparison Strategies](list_comparison.md) - Learn about strategies for comparing list[BaseModel] fields
-10. [Path Access](path_access.md) - Learn about accessing fields by path notation
+6. [Fill Rate](fill_rate.md) - Measure data completeness by checking which fields are filled vs missing
+7. [Fill Rate Accuracy](fill_rate_accuracy.md) - Compare field states (filled/missing) between two objects
+8. [Similarity](similarity.md) - Compare field values with fuzzy matching and advanced strategies
+9. [Field Specifications](field_specs.md) - Learn about Spec(), metadata, and field normalizers
+10. [Pre-defined Specs](specs.md) - Learn about KeywordSpec, TextSpec, NumericSpec, and other pre-defined Specs
+11. [List Comparison Strategies](list_comparison.md) - Learn about strategies for comparing list[BaseModel] fields
 
-### Examples
+### Examples & API
 
-9. [Examples](examples.md) - Practical examples demonstrating various features
+12. [Examples](examples.md) - Practical examples demonstrating various features
+13. [API Reference](reference.md) - Complete API documentation of all classes and functions
 
 ## Overview
 
