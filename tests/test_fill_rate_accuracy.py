@@ -3,14 +3,14 @@ import typing as t
 import pytest
 
 from cobjectric import (
+    AggregatedFieldResult,
     BaseModel,
     DuplicateFillRateAccuracyFuncError,
-    FillRateAggregatedFieldResult,
-    FillRateListResult,
-    FillRateModelResult,
-    InvalidFillRateValueError,
+    InvalidFillRateAccuracyValueError,
     InvalidWeightError,
+    ListResult,
     MissingValue,
+    ModelResult,
     Spec,
     fill_rate_accuracy_func,
 )
@@ -278,7 +278,7 @@ def test_accuracy_nested_models() -> None:
     result = person_got.compute_fill_rate_accuracy(person_expected)
 
     assert result.fields.name.value == 1.0
-    assert isinstance(result.fields.address, FillRateModelResult)
+    assert isinstance(result.fields.address, ModelResult)
     assert result.fields.address.fields.street.value == 1.0
     assert result.fields.address.fields.city.value == 1.0
 
@@ -305,7 +305,7 @@ def test_accuracy_nested_missing() -> None:
     result = person_got.compute_fill_rate_accuracy(person_expected)
 
     assert result.fields.name.value == 1.0
-    assert isinstance(result.fields.address, FillRateModelResult)
+    assert isinstance(result.fields.address, ModelResult)
     # got missing, expected filled -> 0.0
     assert result.fields.address.fields.street.value == 0.0
     assert result.fields.address.fields.city.value == 0.0
@@ -332,7 +332,7 @@ def test_accuracy_mean_with_weights() -> None:
 
 
 def test_accuracy_invalid_value_raises() -> None:
-    """Test that invalid accuracy value raises InvalidFillRateValueError."""
+    """Test that invalid accuracy value raises InvalidFillRateAccuracyValueError."""
 
     class Person(BaseModel):
         name: str = Spec(fill_rate_accuracy_func=lambda got, exp: 1.5)
@@ -340,7 +340,20 @@ def test_accuracy_invalid_value_raises() -> None:
     person_got = Person(name="John")
     person_expected = Person(name="Jane")
 
-    with pytest.raises(InvalidFillRateValueError):
+    with pytest.raises(InvalidFillRateAccuracyValueError):
+        person_got.compute_fill_rate_accuracy(person_expected)
+
+
+def test_accuracy_invalid_value_non_float_raises() -> None:
+    """Test that non-float accuracy value raises InvalidFillRateAccuracyValueError."""
+
+    class Person(BaseModel):
+        name: str = Spec(fill_rate_accuracy_func=lambda got, exp: "not a float")
+
+    person_got = Person(name="John")
+    person_expected = Person(name="Jane")
+
+    with pytest.raises(InvalidFillRateAccuracyValueError):
         person_got.compute_fill_rate_accuracy(person_expected)
 
 
@@ -420,7 +433,7 @@ def test_accuracy_empty_model() -> None:
 
     result = instance_got.compute_fill_rate_accuracy(instance_expected)
 
-    assert isinstance(result, FillRateModelResult)
+    assert isinstance(result, ModelResult)
     assert result.mean() == 0.0
 
 
@@ -467,7 +480,7 @@ def test_accuracy_nested_model_type_both_missing() -> None:
     result = person_got.compute_fill_rate_accuracy(person_expected)
 
     # Both missing -> accuracy = 1.0 for all nested fields
-    assert isinstance(result.fields.address, FillRateModelResult)
+    assert isinstance(result.fields.address, ModelResult)
     assert result.fields.address.fields.street.value == 1.0
     assert result.fields.address.fields.city.value == 1.0
 
@@ -494,7 +507,7 @@ def test_accuracy_nested_model_type_got_missing_expected_present() -> None:
     result = person_got.compute_fill_rate_accuracy(person_expected)
 
     # Got missing, expected present -> accuracy = 0.0 for all nested fields
-    assert isinstance(result.fields.address, FillRateModelResult)
+    assert isinstance(result.fields.address, ModelResult)
     assert result.fields.address.fields.street.value == 0.0
     assert result.fields.address.fields.city.value == 0.0
 
@@ -521,7 +534,7 @@ def test_accuracy_nested_model_type_got_present_expected_missing() -> None:
     result = person_got.compute_fill_rate_accuracy(person_expected)
 
     # Got present, expected missing -> accuracy = 0.0 for all nested fields
-    assert isinstance(result.fields.address, FillRateModelResult)
+    assert isinstance(result.fields.address, ModelResult)
     assert result.fields.address.fields.street.value == 0.0
     assert result.fields.address.fields.city.value == 0.0
 
@@ -552,7 +565,7 @@ def test_accuracy_nested_model_type_expected_not_basemodel() -> None:
     result = person_got.compute_fill_rate_accuracy(person_expected)
 
     # Expected is not BaseModel -> accuracy = 0.0 for all nested fields
-    assert isinstance(result.fields.address, FillRateModelResult)
+    assert isinstance(result.fields.address, ModelResult)
     assert result.fields.address.fields.street.value == 0.0
     assert result.fields.address.fields.city.value == 0.0
 
@@ -574,7 +587,7 @@ def test_accuracy_nested_both_missing() -> None:
     result = person_got.compute_fill_rate_accuracy(person_expected)
 
     # Both missing -> accuracy = 1.0 for all nested fields
-    assert isinstance(result.fields.address, FillRateModelResult)
+    assert isinstance(result.fields.address, ModelResult)
     assert result.fields.address.fields.street.value == 1.0
     assert result.fields.address.fields.city.value == 1.0
 
@@ -601,7 +614,7 @@ def test_accuracy_nested_one_missing() -> None:
     result = person_got.compute_fill_rate_accuracy(person_expected)
 
     # One missing -> accuracy = 0.0 for all nested fields
-    assert isinstance(result.fields.address, FillRateModelResult)
+    assert isinstance(result.fields.address, ModelResult)
     assert result.fields.address.fields.street.value == 0.0
     assert result.fields.address.fields.city.value == 0.0
 
@@ -646,7 +659,7 @@ def test_accuracy_nested_expected_value_not_basemodel() -> None:
     result = person_got.compute_fill_rate_accuracy(person_expected)
 
     # Expected is not BaseModel -> accuracy = 0.0 for nested fields
-    assert isinstance(result.fields.address, FillRateModelResult)
+    assert isinstance(result.fields.address, ModelResult)
     assert result.fields.address.fields.street.value == 0.0
 
 
@@ -668,7 +681,7 @@ def test_accuracy_nested_with_internal_fields() -> None:
 
     # Both address missing -> accuracy = 1.0 for all fields
     # Internal fields (_internal) should be skipped
-    assert isinstance(result.fields.address, FillRateModelResult)
+    assert isinstance(result.fields.address, ModelResult)
     assert result.fields.address.fields.street.value == 1.0
 
 
@@ -691,7 +704,7 @@ def test_accuracy_nested_both_present_got_present_expected_missing() -> None:
     result = person_got.compute_fill_rate_accuracy(person_expected)
 
     # Got has address, expected doesn't -> accuracy = 0.0 for nested fields
-    assert isinstance(result.fields.address, FillRateModelResult)
+    assert isinstance(result.fields.address, ModelResult)
     assert result.fields.address.fields.street.value == 0.0
     assert result.fields.address.fields.city.value == 0.0
 
@@ -714,7 +727,7 @@ def test_accuracy_nested_field_expected_not_basemodel() -> None:
     result = person_got.compute_fill_rate_accuracy(person_expected)
 
     # Expected nested value is not BaseModel -> accuracy = 0.0
-    assert isinstance(result.fields.address, FillRateModelResult)
+    assert isinstance(result.fields.address, ModelResult)
     assert result.fields.address.fields.street.value == 0.0
 
 
@@ -742,7 +755,7 @@ def test_accuracy_field_is_basemodel_instance() -> None:
     result = person.compute_fill_rate_accuracy(person_expected)
 
     # Field is BaseModel, expected is BaseModel -> compute recursively
-    assert isinstance(result.fields.address, FillRateModelResult)
+    assert isinstance(result.fields.address, ModelResult)
     assert result.fields.address.fields.street.value == 1.0
 
 
@@ -763,7 +776,7 @@ def test_accuracy_field_nested_model_one_missing() -> None:
     result = person_got.compute_fill_rate_accuracy(person_expected)
 
     # Got missing, expected present -> accuracy = 0.0 for nested fields
-    assert isinstance(result.fields.address, FillRateModelResult)
+    assert isinstance(result.fields.address, ModelResult)
     assert result.fields.address.fields.street.value == 0.0
 
 
@@ -788,7 +801,7 @@ def test_accuracy_field_nested_model_both_present_expected_not_basemodel() -> No
     result = person_got.compute_fill_rate_accuracy(person_expected)
 
     # Got is BaseModel, expected is not -> accuracy = 0.0 for nested fields
-    assert isinstance(result.fields.address, FillRateModelResult)
+    assert isinstance(result.fields.address, ModelResult)
     assert result.fields.address.fields.street.value == 0.0
 
 
@@ -828,7 +841,7 @@ def test_accuracy_field_type_nested_both_present() -> None:
     result = person_got.compute_fill_rate_accuracy(person_expected)
 
     # Both are BaseModel -> recursively compute
-    assert isinstance(result.fields.address, FillRateModelResult)
+    assert isinstance(result.fields.address, ModelResult)
     assert result.fields.address.fields.street.value == 1.0
 
 
@@ -881,7 +894,7 @@ def test_accuracy_nested_both_present_expected_not_basemodel_instance() -> None:
     result = person_got.compute_fill_rate_accuracy(person_expected)
 
     # got.address is BaseModel, expected.address is string -> accuracy = 0.0
-    assert isinstance(result.fields.address, FillRateModelResult)
+    assert isinstance(result.fields.address, ModelResult)
     assert result.fields.address.fields.street.value == 0.0
     assert result.fields.address.fields.city.value == 0.0
 
@@ -908,7 +921,7 @@ def test_accuracy_field_is_basemodel_instance_expected_missing() -> None:
 
     # field is BaseModel, expected_field is None -> expected_value = MissingValue
     # -> accuracy = 0.0 for all nested fields
-    assert isinstance(result.fields.address, FillRateModelResult)
+    assert isinstance(result.fields.address, ModelResult)
     assert result.fields.address.fields.street.value == 0.0
 
 
@@ -954,7 +967,7 @@ def test_accuracy_field_wraps_basemodel_expected_not_basemodel() -> None:
 
     # field.value is BaseModel, expected_value is NOT BaseModel
     # -> accuracy should be 0.0 for all nested fields
-    assert isinstance(result.fields.address, FillRateModelResult)
+    assert isinstance(result.fields.address, ModelResult)
     assert result.fields.address.fields.street.value == 0.0
     assert result.fields.address.fields.city.value == 0.0
 
@@ -997,7 +1010,7 @@ def test_accuracy_field_wraps_basemodel_both_present() -> None:
 
     # Both field.value and expected_value are BaseModel
     # -> should recursively compute accuracy
-    assert isinstance(result.fields.address, FillRateModelResult)
+    assert isinstance(result.fields.address, ModelResult)
     assert result.fields.address.fields.street.value == 1.0
 
 
@@ -1076,7 +1089,7 @@ def test_accuracy_list_basemodel_same_items() -> None:
     result = order_got.compute_fill_rate_accuracy(order_expected)
 
     # Both have 2 items, all fields filled -> accuracy = 1.0 for all
-    assert isinstance(result.fields.items, FillRateListResult)
+    assert isinstance(result.fields.items, ListResult)
     assert len(result.fields.items) == 2
     assert result.fields.items[0].fields.name.value == 1.0
     assert result.fields.items[0].fields.price.value == 1.0
@@ -1111,7 +1124,7 @@ def test_accuracy_list_basemodel_different_count() -> None:
 
     # got has 1 item, expected has 2 items
     # We compare item by item, so only first item is compared
-    assert isinstance(result.fields.items, FillRateListResult)
+    assert isinstance(result.fields.items, ListResult)
     assert len(result.fields.items) == 1
     assert result.fields.items[0].fields.name.value == 1.0
 
@@ -1147,9 +1160,7 @@ def test_accuracy_list_basemodel_aggregated() -> None:
 
     # name: both items have name -> [1.0, 1.0]
     # price: item 0 both have, item 1 got missing -> [1.0, 0.0]
-    assert isinstance(
-        result.fields.items.aggregated_fields.name, FillRateAggregatedFieldResult
-    )
+    assert isinstance(result.fields.items.aggregated_fields.name, AggregatedFieldResult)
     assert result.fields.items.aggregated_fields.name.values == [1.0, 1.0]
     assert result.fields.items.aggregated_fields.price.values == [1.0, 0.0]
 
@@ -1184,7 +1195,7 @@ def test_accuracy_list_basemodel_type_mismatch() -> None:
     result = order_got.compute_fill_rate_accuracy(order_expected)
 
     # Type mismatch should create empty result
-    assert isinstance(result.fields.items, FillRateListResult)
+    assert isinstance(result.fields.items, ListResult)
     assert len(result.fields.items) == 1
     # All fields should be 0.0 due to type mismatch
     assert result.fields.items[0].fields.name.value == 0.0
@@ -1221,7 +1232,7 @@ def test_accuracy_list_basemodel_type_mismatch_with_private_field() -> None:
     result = order_got.compute_fill_rate_accuracy(order_expected)
 
     # Type mismatch should create empty result, private field should be skipped
-    assert isinstance(result.fields.items, FillRateListResult)
+    assert isinstance(result.fields.items, ListResult)
     assert len(result.fields.items) == 1
     # Only name field should be present (private field skipped)
     assert "name" in result.fields.items[0]._fields

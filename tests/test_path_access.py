@@ -2,9 +2,9 @@ import pytest
 
 from cobjectric import (
     BaseModel,
-    FillRateFieldResult,
-    FillRateListResult,
-    FillRateModelResult,
+    FieldResult,
+    ListResult,
+    ModelResult,
 )
 
 
@@ -18,7 +18,7 @@ def test_path_access_simple() -> None:
     person = Person(name="John", age=30)
     result = person.compute_fill_rate()
 
-    assert isinstance(result["name"], FillRateFieldResult)
+    assert isinstance(result["name"], FieldResult)
     assert result["name"].value == 1.0
     assert result["age"].value == 1.0
 
@@ -42,8 +42,8 @@ def test_path_access_nested() -> None:
     )
     result = person.compute_fill_rate()
 
-    assert isinstance(result["address"], FillRateModelResult)
-    assert isinstance(result["address.city"], FillRateFieldResult)
+    assert isinstance(result["address"], ModelResult)
+    assert isinstance(result["address.city"], FieldResult)
     assert result["address.city"].value == 1.0
     assert result["address.street"].value == 1.0
 
@@ -74,8 +74,8 @@ def test_path_access_deeply_nested() -> None:
     )
     result = person.compute_fill_rate()
 
-    assert isinstance(result["address.country"], FillRateModelResult)
-    assert isinstance(result["address.country.name"], FillRateFieldResult)
+    assert isinstance(result["address.country"], ModelResult)
+    assert isinstance(result["address.country.name"], FieldResult)
     assert result["address.country.name"].value == 1.0
     assert result["address.country.code"].value == 1.0
 
@@ -171,7 +171,7 @@ def test_path_access_fill_rate_result_nested_missing() -> None:
     person = Person(name="John")  # address is missing
     result = person.compute_fill_rate()
 
-    assert isinstance(result["address"], FillRateModelResult)
+    assert isinstance(result["address"], ModelResult)
     assert result["address.street"].value == 0.0
     assert result["address.city"].value == 0.0
 
@@ -198,11 +198,11 @@ def test_path_access_fill_rate_result_list_index_works() -> None:
 
     # List index access now works
     item_result = result["items[0]"]
-    assert isinstance(item_result, FillRateModelResult)
+    assert isinstance(item_result, ModelResult)
     assert item_result.fields.name.value == 1.0
 
     # Accessing list field without index works
-    assert isinstance(result["items"], FillRateListResult)
+    assert isinstance(result["items"], ListResult)
 
 
 def test_path_access_fill_rate_result_list_nested_works() -> None:
@@ -226,7 +226,7 @@ def test_path_access_fill_rate_result_list_nested_works() -> None:
 
     # List index access with nested field now works
     name_result = result["items[0].name"]
-    assert isinstance(name_result, FillRateFieldResult)
+    assert isinstance(name_result, FieldResult)
     assert name_result.value == 1.0
 
 
@@ -258,7 +258,7 @@ def test_path_access_multiple_list_indices_works() -> None:
 
     # Multiple list indices now work
     name_result = result["orders[0].items[1].name"]
-    assert isinstance(name_result, FillRateFieldResult)
+    assert isinstance(name_result, FieldResult)
     assert name_result.value == 1.0
 
 
@@ -397,7 +397,7 @@ def test_path_access_nested_field_with_basemodel_value() -> None:
 
 
 def test_path_access_fill_rate_direct_list_index_first_segment() -> None:
-    """Test FillRateFieldCollection with list index as first segment."""
+    """Test FieldResultCollection with list index as first segment."""
 
     class Person(BaseModel):
         name: str
@@ -491,7 +491,7 @@ def test_path_access_list_index_works() -> None:
     result = order.compute_fill_rate()
 
     item0_result = result["items[0]"]
-    assert isinstance(item0_result, FillRateModelResult)
+    assert isinstance(item0_result, ModelResult)
     assert item0_result.fields.name.value == 1.0
 
 
@@ -516,11 +516,11 @@ def test_path_access_list_index_nested_field() -> None:
     result = order.compute_fill_rate()
 
     name_result = result["items[0].name"]
-    assert isinstance(name_result, FillRateFieldResult)
+    assert isinstance(name_result, FieldResult)
     assert name_result.value == 1.0
 
     price_result = result["items[1].price"]
-    assert isinstance(price_result, FillRateFieldResult)
+    assert isinstance(price_result, FieldResult)
     assert price_result.value == 1.0
 
 
@@ -573,7 +573,7 @@ def test_path_access_list_multiple_indices() -> None:
     result = customer.compute_fill_rate()
 
     name_result = result["orders[0].items[1].name"]
-    assert isinstance(name_result, FillRateFieldResult)
+    assert isinstance(name_result, FieldResult)
     assert name_result.value == 1.0
 
 
@@ -762,7 +762,7 @@ def test_path_access_field_collection_invalid_index_direct() -> None:
 
 
 def test_path_access_fill_rate_invalid_index_direct() -> None:
-    """Test FillRateFieldCollection._resolve_path with invalid index directly."""
+    """Test FieldResultCollection._resolve_path with invalid index directly."""
 
     class Item(BaseModel):
         name: str

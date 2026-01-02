@@ -117,6 +117,57 @@ class InvalidFillRateValueError(CobjectricError):
         )
 
 
+class InvalidFillRateAccuracyValueError(CobjectricError):
+    """
+    Exception raised when fill_rate_accuracy_func returns an invalid value.
+
+    This exception is raised when fill_rate_accuracy_func returns a value that is not
+    a float (or int convertible to float) or is not in the range [0, 1].
+    """
+
+    def __init__(self, field_name: str, value: t.Any) -> None:
+        """
+        Initialize InvalidFillRateAccuracyValueError.
+
+        Args:
+            field_name: The name of the field with invalid fill_rate_accuracy value.
+            value: The invalid value that was returned.
+        """
+        self.field_name = field_name
+        self.value = value
+        value_type = type(value).__name__
+        super().__init__(
+            f"Invalid fill_rate_accuracy value for field '{field_name}': {value!r} "
+            f"(type: {value_type}). Fill rate accuracy must be a float "
+            "between 0.0 and 1.0."
+        )
+
+
+class InvalidSimilarityValueError(CobjectricError):
+    """
+    Exception raised when similarity_func returns an invalid value.
+
+    This exception is raised when similarity_func returns a value that is not
+    a float (or int convertible to float) or is not in the range [0, 1].
+    """
+
+    def __init__(self, field_name: str, value: t.Any) -> None:
+        """
+        Initialize InvalidSimilarityValueError.
+
+        Args:
+            field_name: The name of the field with invalid similarity value.
+            value: The invalid value that was returned.
+        """
+        self.field_name = field_name
+        self.value = value
+        value_type = type(value).__name__
+        super().__init__(
+            f"Invalid similarity value for field '{field_name}': {value!r} "
+            f"(type: {value_type}). Similarity must be a float between 0.0 and 1.0."
+        )
+
+
 class InvalidWeightError(CobjectricError):
     """
     Exception raised when weight is invalid.
@@ -250,4 +301,32 @@ class InvalidListCompareStrategyError(CobjectricError):
         super().__init__(
             f"list_compare_strategy can only be used on list[BaseModel] fields. "
             f"Field '{field_name}' is not a list[BaseModel] type."
+        )
+
+
+class IncompatibleModelResultError(CobjectricError):
+    """
+    Exception raised when trying to combine ModelResults from different model types.
+
+    This exception is raised when trying to add ModelResults that come from
+    different BaseModel classes. All ModelResults in a ModelResultCollection
+    must come from the same model type.
+    """
+
+    def __init__(self, model_type1: type, model_type2: type) -> None:
+        """
+        Initialize IncompatibleModelResultError.
+
+        Args:
+            model_type1: The first model type.
+            model_type2: The second model type.
+        """
+        self.model_type1 = model_type1
+        self.model_type2 = model_type2
+        type1_name = getattr(model_type1, "__name__", str(model_type1))
+        type2_name = getattr(model_type2, "__name__", str(model_type2))
+        super().__init__(
+            f"Cannot combine ModelResults from different model types: "
+            f"{type1_name} and {type2_name}. "
+            "All ModelResults in a collection must come from the same model type."
         )

@@ -277,3 +277,7 @@ except CobjectricError as e:
 - [Nested Models](nested_models.md) - Learn about nested model structures
 - [Field Specifications](field_specs.md) - Learn about Spec() and field normalizers
 - [Path Access](path_access.md) - Learn about accessing fields by path notation
+
+## API Reference
+
+See the [API Reference](reference.md#core-model-classes) for the complete `BaseModel` API.

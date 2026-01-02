@@ -860,3 +860,7 @@ except DuplicateFillRateAccuracyFuncError as e:
 - [Similarity](similarity.md) - Learn about similarity computation
 - [List Comparison Strategies](list_comparison.md) - Detailed guide on list comparison strategies
 
+## API Reference
+
+See the [API Reference](reference.md#field-results) for the complete Fill Rate result classes and methods.
+

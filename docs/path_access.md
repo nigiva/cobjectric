@@ -178,3 +178,7 @@ except KeyError:
 - [Nested Models](nested_models.md) - Learn about nested model structures
 - [Fill Rate](fill_rate.md) - Learn about fill rate computation
 
+## API Reference
+
+See the [API Reference](reference.md#field-results) for result classes that support path access via `__getitem__`.
+

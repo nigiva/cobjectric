@@ -267,3 +267,7 @@ assert isinstance(person.fields.age.value, int)
 - [Similarity](similarity.md) - Learn about similarity functions
 - [Fill Rate](fill_rate.md) - Learn about fill rate functions
 
+## API Reference
+
+See the [API Reference](reference.md#pre-defined-specs) for all pre-defined Spec classes.
+
