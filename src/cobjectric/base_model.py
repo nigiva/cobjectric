@@ -21,11 +21,8 @@ from cobjectric.field_spec import FieldSpec, is_contextual_normalizer
 from cobjectric.fill_rate import (
     FillRateAccuracyFunc,
     FillRateAccuracyFuncInfo,
-    FillRateFieldResult,
     FillRateFunc,
     FillRateFuncInfo,
-    FillRateListResult,
-    FillRateModelResult,
     SimilarityFunc,
     SimilarityFuncInfo,
     not_missing_fill_rate,
@@ -36,6 +33,11 @@ from cobjectric.list_compare import (
     align_levenshtein,
     align_optimal_assignment,
     align_pairwise,
+)
+from cobjectric.results import (
+    FieldResult,
+    ListResult,
+    ModelResult,
 )
 from cobjectric.sentinel import MissingValue
 from cobjectric.similarities import exact_similarity
@@ -553,35 +555,33 @@ class BaseModel:
         cls,
         model_class: type[BaseModel],
         default_value: float,
-    ) -> FillRateModelResult:
+    ) -> ModelResult:
         """
-        Create a FillRateModelResult with all fields set to default_value.
+        Create a ModelResult with all fields set to default_value.
 
         Args:
             model_class: The BaseModel class to create the result for.
             default_value: The default value for all fields (typically 0.0 or 1.0).
 
         Returns:
-            FillRateModelResult with all fields set to default_value.
+            ModelResult with all fields set to default_value.
         """
         nested_annotations = getattr(model_class, "__annotations__", {})
-        nested_fields: dict[
-            str, FillRateFieldResult | FillRateModelResult | FillRateListResult
-        ] = {}
+        nested_fields: dict[str, FieldResult | ModelResult | ListResult] = {}
         for nested_field_name in nested_annotations:
             if nested_field_name.startswith("_"):
                 continue
-            nested_fields[nested_field_name] = FillRateFieldResult(
+            nested_fields[nested_field_name] = FieldResult(
                 value=default_value, weight=1.0
             )
-        return FillRateModelResult(_fields=nested_fields)
+        return ModelResult(_fields=nested_fields)
 
-    def compute_fill_rate(self) -> FillRateModelResult:
+    def compute_fill_rate(self) -> ModelResult:
         """
         Compute fill rate for all fields in this model.
 
         Returns:
-            FillRateModelResult containing fill rates for all fields.
+            ModelResult containing fill rates for all fields.
 
         Raises:
             DuplicateFillRateFuncError: If multiple fill_rate_func are defined
@@ -591,9 +591,7 @@ class BaseModel:
         # Collect decorator fill_rate_funcs once per class
         decorator_fill_rate_funcs = self._collect_fill_rate_funcs()
 
-        result_fields: dict[
-            str, FillRateFieldResult | FillRateModelResult | FillRateListResult
-        ] = {}
+        result_fields: dict[str, FieldResult | ModelResult | ListResult] = {}
 
         for field_name, field in self._fields.items():
             # Get FieldSpec
@@ -645,26 +643,26 @@ class BaseModel:
                 element_type = self._get_list_element_type(field.type)
 
                 if self._is_base_model_type(element_type):
-                    # list[BaseModel] → FillRateListResult
+                    # list[BaseModel] → ListResult
                     if field.value is MissingValue:
-                        result_fields[field_name] = FillRateListResult(
+                        result_fields[field_name] = ListResult(
                             _items=[], weight=weight_to_use, _element_type=element_type
                         )
                     elif not field.value:  # Liste vide
-                        result_fields[field_name] = FillRateListResult(
+                        result_fields[field_name] = ListResult(
                             _items=[], weight=weight_to_use, _element_type=element_type
                         )
                     else:
                         items_results = [
                             item.compute_fill_rate() for item in field.value
                         ]
-                        result_fields[field_name] = FillRateListResult(
+                        result_fields[field_name] = ListResult(
                             _items=items_results,
                             weight=weight_to_use,
                             _element_type=element_type,
                         )
                 else:
-                    # list[Primitive] → FillRateFieldResult
+                    # list[Primitive] → FieldResult
                     # Empty list should return 0.0, otherwise use the function
                     if field.value is MissingValue or not field.value:
                         fill_value = 0.0
@@ -672,7 +670,7 @@ class BaseModel:
                         fill_value = fill_rate_func_to_use(field.value)
                     fill_value = self._validate_fill_rate_value(field_name, fill_value)
 
-                    result_fields[field_name] = FillRateFieldResult(
+                    result_fields[field_name] = FieldResult(
                         value=fill_value, weight=weight_to_use
                     )
                 continue
@@ -680,7 +678,7 @@ class BaseModel:
             # Check if this field is a nested model type but MissingValue
             is_nested_model_type = self._is_base_model_type(field.type)
             if is_nested_model_type and field.value is MissingValue:
-                # Create a FillRateModelResult with all fields at 0.0
+                # Create a ModelResult with all fields at 0.0
                 result_fields[field_name] = self._create_empty_model_result(
                     field.type, 0.0
                 )
@@ -691,13 +689,13 @@ class BaseModel:
                 validated_value = self._validate_fill_rate_value(
                     field_name, fill_rate_value
                 )
-                result_fields[field_name] = FillRateFieldResult(
+                result_fields[field_name] = FieldResult(
                     value=validated_value, weight=weight_to_use
                 )
 
-        return FillRateModelResult(_fields=result_fields)
+        return ModelResult(_fields=result_fields)
 
-    def compute_fill_rate_accuracy(self, expected: BaseModel) -> FillRateModelResult:
+    def compute_fill_rate_accuracy(self, expected: BaseModel) -> ModelResult:
         """
         Compute fill rate accuracy for all fields compared to expected model.
 
@@ -705,7 +703,7 @@ class BaseModel:
             expected: The expected model to compare against (same type).
 
         Returns:
-            FillRateModelResult containing accuracy scores for all fields.
+            ModelResult containing accuracy scores for all fields.
             Uses fill_rate_accuracy_weight (not fill_rate_weight) for weighted mean.
 
         Raises:
@@ -719,9 +717,7 @@ class BaseModel:
         # Collect decorator fill_rate_accuracy_funcs once per class
         decorator_fill_rate_accuracy_funcs = self._collect_fill_rate_accuracy_funcs()
 
-        result_fields: dict[
-            str, FillRateFieldResult | FillRateModelResult | FillRateListResult
-        ] = {}
+        result_fields: dict[str, FieldResult | ModelResult | ListResult] = {}
 
         for field_name, field in self._fields.items():
             # Get corresponding field from expected model
@@ -798,7 +794,7 @@ class BaseModel:
                 element_type = self._get_list_element_type(field.type)
 
                 if self._is_base_model_type(element_type):
-                    # list[BaseModel] → FillRateListResult
+                    # list[BaseModel] → ListResult
                     got_list = field.value if field.value is not MissingValue else []
                     expected_list = (
                         expected_value
@@ -813,7 +809,7 @@ class BaseModel:
                     def compute_accuracy(
                         got_item: BaseModel,
                         expected_item: BaseModel,
-                    ) -> FillRateModelResult:
+                    ) -> ModelResult:
                         return got_item.compute_fill_rate_accuracy(expected_item)
 
                     alignment = self._get_list_alignment(
@@ -840,20 +836,20 @@ class BaseModel:
                                 self._create_empty_model_result(element_type, 0.0)
                             )
 
-                    result_fields[field_name] = FillRateListResult(
+                    result_fields[field_name] = ListResult(
                         _items=items_results,
                         weight=weight_to_use,
                         _element_type=element_type,
                     )
                 else:
-                    # list[Primitive] → FillRateFieldResult
+                    # list[Primitive] → FieldResult
                     accuracy_value = fill_rate_accuracy_func_to_use(
                         field.value, expected_value
                     )
                     validated_value = self._validate_fill_rate_value(
                         field_name, accuracy_value
                     )
-                    result_fields[field_name] = FillRateFieldResult(
+                    result_fields[field_name] = FieldResult(
                         value=validated_value, weight=weight_to_use
                     )
                 continue
@@ -892,18 +888,18 @@ class BaseModel:
                 validated_value = self._validate_fill_rate_value(
                     field_name, accuracy_value
                 )
-                result_fields[field_name] = FillRateFieldResult(
+                result_fields[field_name] = FieldResult(
                     value=validated_value, weight=weight_to_use
                 )
 
-        return FillRateModelResult(_fields=result_fields)
+        return ModelResult(_fields=result_fields)
 
     def _get_list_alignment(
         self,
         got_list: list[BaseModel],
         expected_list: list[BaseModel],
         strategy: ListCompareStrategy,
-        compute_func: t.Callable[[BaseModel, BaseModel], FillRateModelResult],
+        compute_func: t.Callable[[BaseModel, BaseModel], ModelResult],
     ) -> list[tuple[int, int]]:
         """
         Get alignment between two lists based on strategy.
@@ -925,7 +921,7 @@ class BaseModel:
             case ListCompareStrategy.OPTIMAL_ASSIGNMENT:
                 return align_optimal_assignment(got_list, expected_list, compute_func)
 
-    def compute_similarity(self, expected: BaseModel) -> FillRateModelResult:
+    def compute_similarity(self, expected: BaseModel) -> ModelResult:
         """
         Compute similarity for all fields compared to expected model.
 
@@ -933,7 +929,7 @@ class BaseModel:
             expected: The expected model to compare against (same type).
 
         Returns:
-            FillRateModelResult containing similarity scores for all fields.
+            ModelResult containing similarity scores for all fields.
             Uses similarity_weight for weighted mean.
 
         Raises:
@@ -946,9 +942,7 @@ class BaseModel:
         # Collect decorator similarity_funcs once per class
         decorator_similarity_funcs = self._collect_similarity_funcs()
 
-        result_fields: dict[
-            str, FillRateFieldResult | FillRateModelResult | FillRateListResult
-        ] = {}
+        result_fields: dict[str, FieldResult | ModelResult | ListResult] = {}
 
         for field_name, field in self._fields.items():
             # Get corresponding field from expected model
@@ -1025,7 +1019,7 @@ class BaseModel:
                 element_type = self._get_list_element_type(field.type)
 
                 if self._is_base_model_type(element_type):
-                    # list[BaseModel] → FillRateListResult
+                    # list[BaseModel] → ListResult
                     got_list = field.value if field.value is not MissingValue else []
                     expected_list = (
                         expected_value
@@ -1040,7 +1034,7 @@ class BaseModel:
                     def compute_sim(
                         got_item: BaseModel,
                         expected_item: BaseModel,
-                    ) -> FillRateModelResult:
+                    ) -> ModelResult:
                         return got_item.compute_similarity(expected_item)
 
                     alignment = self._get_list_alignment(
@@ -1065,20 +1059,20 @@ class BaseModel:
                                 self._create_empty_model_result(element_type, 0.0)
                             )
 
-                    result_fields[field_name] = FillRateListResult(
+                    result_fields[field_name] = ListResult(
                         _items=items_results,
                         weight=weight_to_use,
                         _element_type=element_type,
                     )
                 else:
-                    # list[Primitive] → FillRateFieldResult
+                    # list[Primitive] → FieldResult
                     similarity_value = similarity_func_to_use(
                         field.value, expected_value
                     )
                     validated_value = self._validate_fill_rate_value(
                         field_name, similarity_value
                     )
-                    result_fields[field_name] = FillRateFieldResult(
+                    result_fields[field_name] = FieldResult(
                         value=validated_value, weight=weight_to_use
                     )
                 continue
@@ -1113,11 +1107,11 @@ class BaseModel:
                 validated_value = self._validate_fill_rate_value(
                     field_name, similarity_value
                 )
-                result_fields[field_name] = FillRateFieldResult(
+                result_fields[field_name] = FieldResult(
                     value=validated_value, weight=weight_to_use
                 )
 
-        return FillRateModelResult(_fields=result_fields)
+        return ModelResult(_fields=result_fields)
 
     def __init__(self, **kwargs: t.Any) -> None:
         """

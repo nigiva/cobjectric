@@ -136,10 +136,10 @@ The documentation includes:
 - Python 3.13.9 or higher
 - [uv](https://github.com/astral-sh/uv) - Fast Python package installer
 
-1. Install dependencies with uv:
+1. Install dependencies with uv (including optional extras for testing):
 
 ```bash
-uv sync --dev
+uv sync --dev --all-extras
 ```
 
 2. Install pre-commit hooks:

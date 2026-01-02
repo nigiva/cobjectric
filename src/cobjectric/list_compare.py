@@ -3,7 +3,7 @@ from __future__ import annotations
 import typing as t
 from enum import Enum
 
-from cobjectric.fill_rate import FillRateModelResult
+from cobjectric.results import ModelResult
 
 
 class ListCompareStrategy(str, Enum):
@@ -41,7 +41,7 @@ def align_pairwise(
 def align_levenshtein(
     got_list: list[t.Any],
     expected_list: list[t.Any],
-    compute_similarity_func: t.Callable[[t.Any, t.Any], FillRateModelResult],
+    compute_similarity_func: t.Callable[[t.Any, t.Any], ModelResult],
 ) -> list[tuple[int, int]]:
     """
     Align items using Levenshtein-based alignment with similarity.
@@ -135,7 +135,7 @@ def align_levenshtein(
 def align_optimal_assignment(
     got_list: list[t.Any],
     expected_list: list[t.Any],
-    compute_similarity_func: t.Callable[[t.Any, t.Any], FillRateModelResult],
+    compute_similarity_func: t.Callable[[t.Any, t.Any], ModelResult],
 ) -> list[tuple[int, int]]:
     """
     Align items using optimal assignment (Hungarian algorithm).
